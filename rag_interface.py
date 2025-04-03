@@ -15,6 +15,9 @@ import os
 import google.generativeai as genai
 from retriever import BusinessSiteRetriever
 
+# here im using a keys.json file to store the google api key
+# you can use your own api key or set it in the environment variable GOOGLE_API_KEY
+# you also don't need to use google's gemini model, you can use any other model
 def load_api_key() -> str:
     """Load Google API key from the config file."""
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", "keys.json")
