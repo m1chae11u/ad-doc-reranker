@@ -5,10 +5,10 @@ Reranking Advertisement Documents in RAG for Blackbox LLMs
 
 - [Installation](#installation)
 - [Usage](#usage)
-  - [Data Processing]
-  - [Building the Index]
-  - [Using the Retriever]
-  - [Running the RAG Interface]
+  - Data Processing
+  - Building the Index
+  - Using the Retriever
+  - Running the RAG Interface
 - [Configuration](#configuration)
   - [Embedding Model](#embedding-model)
   - [LLM Settings](#llm-settings)
