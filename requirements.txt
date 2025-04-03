@@ -1,0 +1,10 @@
+transformers
+langchain
+faiss-cpu
+datasets
+sentence-transformers
+torch
+numpy
+google-generativeai
+langchain-community
+langchain-huggingface
