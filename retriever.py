@@ -142,7 +142,7 @@ class AdSiteRetriever:
                 if 'seller' in original_data and original_data['seller']:
                     full_content += f"Seller: {original_data['seller']}\n\n"
                 
-                full_content += f"doc_id: {doc_id}"
+                full_content += f"url: {original_data['url']}"
                 
                 # Create full document
                 full_doc = Document(
