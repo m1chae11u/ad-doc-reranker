@@ -13,7 +13,7 @@ Usage:
 import argparse
 import os
 import google.generativeai as genai
-from retriever import BusinessSiteRetriever
+from retriever import AdSiteRetriever
 
 # here im using a keys.json file to store the google api key
 # you can use your own api key or set it in the environment variable GOOGLE_API_KEY
@@ -56,7 +56,7 @@ Please provide a helpful, informative response directed to the userbased on the 
 
 def main(query: str, index_dir: str, top_k: int, use_full_docs: bool = True):
     # Initialize the retriever
-    retriever = BusinessSiteRetriever(index_dir=index_dir, top_k=top_k)
+    retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k)
     
     # Get relevant context - now using full documents by default
     context = retriever.get_relevant_context(query, use_full_docs=use_full_docs)

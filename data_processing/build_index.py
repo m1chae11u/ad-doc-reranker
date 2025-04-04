@@ -49,7 +49,7 @@ def load_documents(file_path: str) -> List[Document]:
                 'seller': item.get('seller', ''),
                 'user_query': item.get('user_query', ''),
                 'source': item.get('source', ''), 
-                'doc_id': str(uuid.uuid4())  # Unique ID to track document chunks
+                'doc_id': item.get('ad_id', '') # str(uuid.uuid4())  # Unique ID to track document chunks 
             }
         )
         documents.append(doc)

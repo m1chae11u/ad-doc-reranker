@@ -12,6 +12,7 @@ import json
 import os
 import csv
 import glob
+import uuid
 
 def convert_microsoft_ads(input_dir: str, output_file: str):
     """
@@ -57,7 +58,8 @@ def convert_microsoft_ads(input_dir: str, output_file: str):
                     'url': row[5].strip(),
                     'seller': row[6].strip(),
                     'brand': row[7].strip(),
-                    'source': 'microsoft_commercial_ads'
+                    'source': 'microsoft_commercial_ads',
+                    'ad_id': str(uuid.uuid4())
                 }
                 
                 # Only add ads with content

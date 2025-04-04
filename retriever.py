@@ -21,7 +21,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 
-class BusinessSiteRetriever:
+class AdSiteRetriever:
     def __init__(self, index_dir: str, top_k: int = 3):
         """
         Initialize the retriever with a FAISS index.
@@ -57,10 +57,10 @@ class BusinessSiteRetriever:
             try:
                 with open(self.original_docs_path, 'r', encoding='utf-8') as f:
                     documents = json.load(f)
-                    # Create a lookup by URL for quick access
+                    # Create a lookup by ad_id for quick access
                     for doc in documents:
-                        if 'url' in doc and doc['url']:
-                            self.original_docs[doc['url']] = doc
+                        if 'ad_id' in doc and doc['ad_id']:
+                            self.original_docs[doc['ad_id']] = doc
                 print(f"Loaded {len(self.original_docs)} original documents")
             except Exception as e:
                 print(f"Warning: Could not load original documents: {e}")
@@ -86,7 +86,7 @@ class BusinessSiteRetriever:
         
         for chunk in chunks:
             parent_id = chunk.metadata.get('parent_doc_id')
-            
+
             if parent_id not in seen_docs:
                 seen_docs.add(parent_id)
                 
@@ -127,10 +127,10 @@ class BusinessSiteRetriever:
         # Then get the full documents
         full_docs = []
         for chunk_doc in chunk_docs:
-            url = chunk_doc.metadata.get('url')
-            if url and url in self.original_docs:
+            doc_id = chunk_doc.metadata.get('parent_doc_id')
+            if doc_id and doc_id in self.original_docs:
                 # Create a document with the full content
-                original_data = self.original_docs[url]
+                original_data = self.original_docs[doc_id]
                 
                 # Format the content nicely
                 full_content = f"Title: {original_data.get('title', '')}\n\n"
@@ -142,23 +142,26 @@ class BusinessSiteRetriever:
                 if 'seller' in original_data and original_data['seller']:
                     full_content += f"Seller: {original_data['seller']}\n\n"
                 
-                full_content += f"URL: {url}"
+                full_content += f"doc_id: {doc_id}"
                 
                 # Create full document
                 full_doc = Document(
                     page_content=full_content,
                     metadata={
-                        'url': url,
+                        'url': original_data.get('url', ''),
                         'title': original_data.get('title', ''),
                         'source': original_data.get('source', ''),
                         'is_full_doc': True,
-                        'matched_chunk': chunk_doc.page_content  # Include the matching chunk for context
+                        'matched_chunk': chunk_doc.page_content,  # Include the matching chunk for context
+                        'doc_id': doc_id
                     }
                 )
                 full_docs.append(full_doc)
+                # print("appended full")
             else:
                 # If we can't find the full document, just use the chunk
                 full_docs.append(chunk_doc)
+                # print('append chunk')
         
         return full_docs
     
@@ -189,8 +192,8 @@ class BusinessSiteRetriever:
             else:
                 # For chunks, format differently
                 context += f"Content: {doc.page_content}\n"
-                if doc.metadata.get('url'):
-                    context += f"URL: {doc.metadata.get('url')}\n"
+                if doc.metadata.get('doc_id'):
+                    context += f"doc_id: {doc.metadata.get('doc_id')}\n"
             
             context += "\n" + "-" * 50 + "\n"
         
@@ -198,7 +201,7 @@ class BusinessSiteRetriever:
 
 def main(query: str, index_dir: str, top_k: int, use_full_docs: bool = False):
     # Initialize the retriever
-    retriever = BusinessSiteRetriever(index_dir=index_dir, top_k=top_k)
+    retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k)
     
     # Get relevant context
     context = retriever.get_relevant_context(query, use_full_docs=use_full_docs)
