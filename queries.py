@@ -19,12 +19,17 @@ def initialize_gemini():
     return genai.GenerativeModel("gemini-1.5-pro")
 
 
-def classify_ad_to_domain(ad: Dict, domains: List[str], model) -> str:
+def classify_ad_domain_and_subdomain(ad: Dict, known_domains: List[str], model) -> (str, str):
     prompt = f"""
-You are classifying product advertisements into logical domains.
+You are classifying product advertisements into logical domains and subdomains.
+
+- The **domain** is a broad category (e.g., "Technology", "Health", "Home & Garden").
+- The **subdomain** is a more specific category within that domain (e.g., for Technology: "Wearables", "Laptops", "Smartphones").
 
 Domains so far:
-{', '.join(domains) if domains else 'None'}
+{', '.join(known_domains) if known_domains else 'None'}
+
+Do NOT make the subdomain the same as the domain.
 
 Ad details:
 Headline: {ad.get("headline", "")}
@@ -32,11 +37,28 @@ Description: {ad.get("description", "")}
 Product: {ad.get("product_name", "")}
 Brand: {ad.get("brand", "")}
 
-Classify this ad into one of the existing domains, or propose a new domain if it doesn't fit.
-Respond with just the domain name.
+Respond in the following JSON format:
+{{
+  "domain": "...",
+  "subdomain": "..."
+}}
 """
     response = model.generate_content(prompt)
-    return response.text.strip().strip('"')
+
+    try:
+        result = json.loads(response.text.strip())
+        domain = result.get("domain", "").strip()
+        subdomain = result.get("subdomain", "").strip()
+
+        # Prevent subdomain = domain
+        if subdomain.lower() == domain.lower():
+            subdomain = "General"
+
+        return domain, subdomain
+    except Exception as e:
+        print("Error parsing domain/subdomain response:", response.text.strip())
+        return "Unknown", "General"
+
 
 
 def generate_queries_for_domain(domain: str, num_queries: int, model) -> List[str]:
@@ -73,7 +95,7 @@ def process_ads(input_file: str, output_file: str, num_queries_per_domain: int =
 
     # Step 1: Classify ads by domain
     for i, ad in enumerate(ads):
-        domain = classify_ad_to_domain(ad, known_domains, model)
+        domain, subdomain = classify_ad_domain_and_subdomain(ad, known_domains, model)
         if domain not in known_domains:
             known_domains.append(domain)
         domain_to_ads[domain].append(ad)
@@ -89,6 +111,7 @@ def process_ads(input_file: str, output_file: str, num_queries_per_domain: int =
         for q in queries:
             query_dataset.append({
                 "domain": domain,
+                "subdomain": subdomain,
                 "query": q
             })
 
