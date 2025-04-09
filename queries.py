@@ -37,7 +37,7 @@ def classify_ad_to_domain_and_subdomain(ad: Dict, known_domains: List[str], know
 You are classifying product advertisements into domains and subdomains.
 For example:
 - Domain (e.g., 'Fashion', 'Electronics', 'Healthcare')
-- Subdomain (a more specific category within the domain, e.g., 'Men’s Shoes', 'Smartphones', 'Skincare')
+- Subdomain (a very specific category within the domain, e.g., 'Men’s Shoes', 'Smartphones', 'Skincare')
 
 Domains so far:
 {domain_list}
