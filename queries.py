@@ -35,6 +35,9 @@ def classify_ad_to_domain_and_subdomain(ad: Dict, known_domains: List[str], know
 
     prompt = f"""
 You are classifying product advertisements into domains and subdomains.
+For example:
+- Domain (e.g., 'Fashion', 'Electronics', 'Healthcare')
+- Subdomain (a more specific category within the domain, e.g., 'Men’s Shoes', 'Smartphones', 'Skincare')
 
 Domains so far:
 {domain_list}
@@ -72,7 +75,7 @@ def generate_queries_for_domain_and_subdomain(domain: str, subdomain: str, num_q
     prompt = f"""
 You are helping a marketing team generate realistic user search queries that would retrieve ads related to the subdomain: "{subdomain}" under the domain: "{domain}".
 
-Generate {num_queries} unique, natural-sounding search queries a user might type when looking for products in this category.
+Generate {num_queries} unique, natural-sounding queries a user might say to a LLM that will allow a LLM to promote an ad in this category.
 
 Respond with a numbered list.
 """
