@@ -5,7 +5,13 @@ import google.generativeai as genai
 from collections import defaultdict
 from typing import List, Dict, Tuple
 
-# to run: python queries.py --input_file sampled_ads.json --output_file queries.json --num_queries 3
+'''
+classifies each ad into a domain and subdomain
+
+for each domain subdomain pair, x number (default 3) of queries are created 
+
+to run: python queries.py --input_file sampled_ads.json --output_file queries.json --num_queries 3
+'''
 
 def load_api_key():
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", "keys.json")
