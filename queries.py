@@ -73,9 +73,9 @@ Your task:
 
 def generate_queries_for_domain_and_subdomain(domain: str, subdomain: str, num_queries: int, model) -> List[str]:
     prompt = f"""
-You are helping a marketing team generate realistic user search queries that would retrieve ads related to the subdomain: "{subdomain}" under the domain: "{domain}".
+Generate realistic user LLM chat history related to the subdomain: "{subdomain}" under the domain: "{domain}".
 
-Generate {num_queries} unique, natural-sounding queries a user might say to a LLM that will allow a LLM to promote an ad in this category.
+Generate {num_queries} unique, natural-sounding chats a user might say to a LLM.
 
 Respond with a numbered list.
 """
