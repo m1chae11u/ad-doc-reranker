@@ -73,7 +73,7 @@ Your task:
 
 def generate_queries_for_domain_and_subdomain(domain: str, subdomain: str, num_queries: int, model) -> List[str]:
     prompt = f"""
-Generate realistic user LLM chat history related to the subdomain: "{subdomain}" under the domain: "{domain}".
+Generate realistic user LLM chat related to the subdomain: "{subdomain}" under the domain: "{domain}".
 
 Generate {num_queries} unique, natural-sounding chats a user might say to a LLM.
 

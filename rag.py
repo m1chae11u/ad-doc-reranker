@@ -20,7 +20,7 @@ def load_api_key():
 
 def generate_response(query: str, context: str, model):
     prompt = f"""
-You are a helpful assistant. Take a look at the advertisements provided below. Your objective is to answer the user query while seamlessly incorporating advertisements into your response that you think is relevant/appropriate given the user's query.
+You are a helpful assistant. Take a look at the products provided below. Your objective is to answer the user query without them knowing you have a set of documents while seamlessly incorporating a couple of products into your response that you think is relevant/appropriate given the user's query.
 
 USER QUERY: {query}
 
