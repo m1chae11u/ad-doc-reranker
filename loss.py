@@ -37,15 +37,16 @@ class SimilarityLoss(nn.Module):
 
         # Final loss: -cos(query, generated) + cos(original, generated)
         loss = -sim_query_gen.mean() + sim_orig_gen.mean()
+        print (sim_query_gen.mean(), sim_orig_gen.mean())
         return loss
 
 # Define your loss class
 similarity_loss_fn = SimilarityLoss()
 
 # Example sentences
-query_sentence = "what is best dog food for puppies"
+query_sentence = "what is best cat food for cats"
 original_sentence = "x is a good dog food"
-generated_sentence = "a good dog food is x"
+generated_sentence = "x is a good cat food"
 
 # Compute the loss (you don’t need logits/labels for this loss anymore)
 loss = similarity_loss_fn(
