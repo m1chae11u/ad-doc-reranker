@@ -44,15 +44,24 @@ class SimilarityLoss(nn.Module):
 similarity_loss_fn = SimilarityLoss()
 
 # Example sentences
-query_sentence = "what is best cat food for cats"
-original_sentence = "x is a good dog food"
-generated_sentence = "x is a good cat food"
+query_sentence = [
+    "best dog food for puppies",
+    "how to train a puppy",
+]
+original_sentence = [
+    "x is a healthy dog food for young dogs",
+    "x is a method to train dogs effectively",
+]
+generated_sentence = [
+    "a healthy dog food for young dogs is x",
+    "x is an effective way to train puppies",
+]
 
 # Compute the loss 
 loss = similarity_loss_fn(
-    query_texts=[query_sentence],
-    original_texts=[original_sentence],
-    generated_texts=[generated_sentence],
+    query_texts=query_sentence,
+    original_texts=original_sentence,
+    generated_texts=generated_sentence,
 )
 
 print("Loss:", loss.item())
