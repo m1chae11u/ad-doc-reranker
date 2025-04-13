@@ -42,6 +42,37 @@ class SimilarityLoss(nn.Module):
         similarity_loss = 1 - cosine_sim.mean()  # Minimize the difference
 
         # Total loss is a combination of both
-        total_loss = ce + 1* similarity_loss  # You can adjust the weight of similarity loss
+        total_loss = 0.5* similarity_loss + 0.5*ce # You can adjust the weight of similarity loss
         return total_loss
     
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from sentence_transformers import SentenceTransformer
+import torch.nn as nn
+
+# Define your loss class
+similarity_loss_fn = SimilarityLoss()
+
+# Example sentence
+original_sentence = "a cat is eating"
+generated_sentence = "a cat is eating"
+
+# Simulate tokenization and logits (use your actual model output instead)
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
+model = AutoModelForCausalLM.from_pretrained("gpt2")
+
+# Tokenize the generated sentence (assuming teacher forcing or self-generated output)
+inputs = tokenizer(generated_sentence, return_tensors="pt")
+labels = inputs["input_ids"]
+outputs = model(**inputs, labels=labels)
+logits = outputs.logits
+
+# Compute the loss
+loss = similarity_loss_fn(
+    logits=logits,
+    labels=labels,
+    original_texts=[original_sentence],
+    generated_texts=[generated_sentence]
+)
+
+print("Loss:", loss.item())
