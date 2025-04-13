@@ -48,7 +48,7 @@ query_sentence = "what is best cat food for cats"
 original_sentence = "x is a good dog food"
 generated_sentence = "x is a good cat food"
 
-# Compute the loss (you don’t need logits/labels for this loss anymore)
+# Compute the loss 
 loss = similarity_loss_fn(
     query_texts=[query_sentence],
     original_texts=[original_sentence],
