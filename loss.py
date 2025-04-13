@@ -42,7 +42,7 @@ class SimilarityLoss(nn.Module):
         similarity_loss = 1 - cosine_sim.mean()  # Minimize the difference
 
         # Total loss is a combination of both
-        total_loss = 0.5* similarity_loss + 0.5*ce # You can adjust the weight of similarity loss
+        total_loss = 0.5* similarity_loss + 0.5*ce 
         return total_loss
     
 import torch
