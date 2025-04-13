@@ -1,4 +1,4 @@
-import argparse
+import argparse  
 import torch
 from torch import nn
 from sentence_transformers import SentenceTransformer
@@ -12,64 +12,46 @@ class SimilarityLoss(nn.Module):
             embedding_model_name: Name of the sentence transformer model
         """
         super(SimilarityLoss, self).__init__()
-        # Initialize pre-trained sentence transformer model for semantic similarity
         self.encoder = SentenceTransformer(embedding_model_name)
 
-    def forward(self, logits, labels, original_texts, generated_texts):
+    def forward(self, query_texts, original_texts, generated_texts):
         """
-        Compute the custom loss function: cross-entropy + semantic similarity loss
-        
+        Compute custom loss: -cos(query, generated) + cos(original, generated)
+
         Args:
-            logits: Predicted token logits from the model [batch, seq_len, vocab_size]
-            labels: True token labels [batch, seq_len]
+            query_texts: List of query texts (e.g. prompts)
             original_texts: List of original documents
-            generated_texts: List of generated documents (rewritten text)
-            
+            generated_texts: List of rewritten/generated documents
+
         Returns:
-            Total loss (cross-entropy + semantic similarity)
+            Total loss (scalar)
         """
-
-        # Compute semantic similarity (cosine similarity) between the original and generated documents
         with torch.no_grad():
+            query_embs = self.encoder.encode(query_texts, convert_to_tensor=True)
             orig_embs = self.encoder.encode(original_texts, convert_to_tensor=True)
-            generated_embs = self.encoder.encode(generated_texts, convert_to_tensor=True)
+            gen_embs = self.encoder.encode(generated_texts, convert_to_tensor=True)
 
-        # Cosine similarity (higher is better)
-        cosine_sim = torch.nn.functional.cosine_similarity(orig_embs, generated_embs)
-        similarity_loss = 1 - cosine_sim.mean()  # Minimize the difference
+        # Compute cosine similarities
+        sim_query_gen = torch.nn.functional.cosine_similarity(query_embs, gen_embs)
+        sim_orig_gen = torch.nn.functional.cosine_similarity(orig_embs, gen_embs)
 
-        # Total loss is a combination of both
-        total_loss = 0.5* similarity_loss  
-        return total_loss
-    
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from sentence_transformers import SentenceTransformer
-import torch.nn as nn
+        # Final loss: -cos(query, generated) + cos(original, generated)
+        loss = -sim_query_gen.mean() + sim_orig_gen.mean()
+        return loss
 
 # Define your loss class
 similarity_loss_fn = SimilarityLoss()
 
-# Example sentence
-original_sentence = "a cat is eating"
-generated_sentence = "a cat is eating"
+# Example sentences
+query_sentence = "what is best dog food for puppies"
+original_sentence = "x is a good dog food"
+generated_sentence = "a good dog food is x"
 
-# Simulate tokenization and logits (use your actual model output instead)
-tokenizer = AutoTokenizer.from_pretrained("gpt2")
-model = AutoModelForCausalLM.from_pretrained("gpt2")
-
-# Tokenize the generated sentence (assuming teacher forcing or self-generated output)
-inputs = tokenizer(generated_sentence, return_tensors="pt")
-labels = inputs["input_ids"]
-outputs = model(**inputs, labels=labels)
-logits = outputs.logits
-
-# Compute the loss
+# Compute the loss (you don’t need logits/labels for this loss anymore)
 loss = similarity_loss_fn(
-    logits=logits,
-    labels=labels,
+    query_texts=[query_sentence],
     original_texts=[original_sentence],
-    generated_texts=[generated_sentence]
+    generated_texts=[generated_sentence],
 )
 
 print("Loss:", loss.item())
