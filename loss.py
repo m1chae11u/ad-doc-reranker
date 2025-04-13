@@ -1,8 +1,6 @@
 import argparse
 import torch
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from torch import nn
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from sentence_transformers import SentenceTransformer
 
 class SimilarityLoss(nn.Module):
