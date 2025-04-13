@@ -14,7 +14,6 @@ class SimilarityLoss(nn.Module):
         super(SimilarityLoss, self).__init__()
         # Initialize pre-trained sentence transformer model for semantic similarity
         self.encoder = SentenceTransformer(embedding_model_name)
-        self.ce_loss = nn.CrossEntropyLoss()
 
     def forward(self, logits, labels, original_texts, generated_texts):
         """
@@ -29,8 +28,6 @@ class SimilarityLoss(nn.Module):
         Returns:
             Total loss (cross-entropy + semantic similarity)
         """
-        # Cross-entropy loss for token prediction (still applicable if labels are available)
-        ce = self.ce_loss(logits.view(-1, logits.size(-1)), labels.view(-1))
 
         # Compute semantic similarity (cosine similarity) between the original and generated documents
         with torch.no_grad():
@@ -42,7 +39,7 @@ class SimilarityLoss(nn.Module):
         similarity_loss = 1 - cosine_sim.mean()  # Minimize the difference
 
         # Total loss is a combination of both
-        total_loss = 0.5* similarity_loss + 0.5*ce 
+        total_loss = 0.5* similarity_loss  
         return total_loss
     
 import torch
