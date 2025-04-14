@@ -7,8 +7,8 @@ class RetrievalMetric:
         """
         Initialize the class with the original and rewritten rankings.
         
-        :param original_ranking: List of document IDs in the original ranked order.
-        :param rewritten_ranking: List of document IDs in the rewritten ranked order.
+        original_ranking: List of document IDs in the original ranked order.
+        rewritten_ranking: List of document IDs in the rewritten ranked order.
         """
         self.original_ranking = original_ranking
         self.rewritten_ranking = rewritten_ranking

@@ -1,6 +1,6 @@
 import json
 
-class InclusionAccuracyEvaluator:
+class InclusionAccuracyMetric:
     def __init__(self, k=5):
         """
         Initialize the evaluator.
@@ -48,7 +48,7 @@ if __name__ == "__main__":
         dataset = json.load(f)
 
     # Initialize the evaluator
-    evaluator = InclusionAccuracyEvaluator(k=5)
+    evaluator = InclusionAccuracyMetric(k=5)
 
     # Define the document of interest
     doc_id = "doc1"
