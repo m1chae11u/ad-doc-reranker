@@ -47,10 +47,10 @@ class InclusionAccuracyMetric:
 
 metric = InclusionAccuracyMetric(
     k=10,
-    rankings_before_path='rankings_before.json',
-    rankings_after_path='rankings_after.json',
-    inclusions_before_path='inclusions_before.json',
-    inclusions_after_path='inclusions_after.json'
+    rankings_before_path='ad-doc-reranker/rankings.json',
+    rankings_after_path='ad-doc-reranker/rankings.json',
+    inclusions_before_path='ad-doc-reranker/query_responses_original_200.json',
+    inclusions_after_path='ad-doc-reranker/query_responses_original_200.json'
 )
 
 result = metric.compute_inclusion_accuracy("a767622a-e5f8-48f9-b026-e960bb488e96")
