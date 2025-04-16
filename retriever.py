@@ -188,7 +188,7 @@ class AdSiteRetriever:
             # For full documents, include metadata
             if doc.metadata.get('is_full_doc'):
                 context += doc.page_content
-                context += f"\n\nMatching passage: {doc.metadata.get('matched_chunk')}\n"
+                context += f"\n\nid: {doc.metadata.get('doc_id')}\n"
             else:
                 # For chunks, format differently
                 context += f"Content: {doc.page_content}\n"

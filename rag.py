@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import json
 import google.generativeai as genai
 from retriever import AdSiteRetriever
@@ -20,7 +21,9 @@ def load_api_key():
 
 def generate_response(query: str, context: str, model):
     prompt = f"""
-You are a helpful assistant. Take a look at the products provided below. Your objective is to answer the user query without them knowing you have a set of documents while seamlessly incorporating a couple of products into your response that you think is relevant/appropriate given the user's query.
+You are a helpful and knowledgeable assistant. Below is a list of product advertisements. Your task is to respond to the user's query in a natural and informative way,  promoting one or two relevant products. Include brand and url into your response without revealing that you have access to product ads. 
+
+At the end of your response (not visible to the user), list which documents you included clearly only using the format: 'id: ..., id: ..., ...'.
 
 USER QUERY: {query}
 
@@ -29,8 +32,19 @@ RETRIEVED COMMERCIAL ADS:
 
 Please provide a helpful, informative response directed to the user based on the above information.
 """
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    llm_output = model.generate_content(prompt).text
+    # print (prompt)
+    print (llm_output)
+    ids = re.findall(r'id:\s*([^\s,]+)', llm_output, re.IGNORECASE)
+
+    # Remove the last line if it contains IDs
+    lines = llm_output.strip().splitlines()
+    if lines and re.search(r'id:\s*\w+', lines[-1], re.IGNORECASE):
+        response_text = "\n".join(lines[:-1]).strip()
+    else:
+        response_text = llm_output.strip()
+
+    return response_text, ids
 
 def batch_generate(query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True):
     # Load queries
@@ -52,14 +66,15 @@ def batch_generate(query_file: str, index_dir: str, output_file: str, top_k: int
 
         # Retrieve context and generate response
         context = retriever.get_relevant_context(query, use_full_docs=use_full_docs)
-        response = generate_response(query, context, model)
+        response, docs_in_response = generate_response(query, context, model)
 
         responses.append({
             "query": query,
             "domain": domain,
             "subdomain": subdomain,
             "retrieved_context": context,
-            "response": response
+            "response": response,
+            "documents_in_response": docs_in_response
         })
 
     # Save to output file
