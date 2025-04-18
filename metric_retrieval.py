@@ -43,7 +43,7 @@ class RetrievalMetric:
         rewritten_rr = self.reciprocal_rank(rewritten_rank)
         
         # Calculate how much the target document has moved upwards in terms of MRR
-        movement = original_rr - rewritten_rr
+        movement = rewritten_rr - original_rr
         
         return {
             "original_rank": original_rank,

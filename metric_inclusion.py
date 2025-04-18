@@ -36,7 +36,7 @@ class InclusionAccuracyMetric:
         total = qualified_queries
         freq_before = included_before / total
         freq_after = included_after / total
-        improvement = freq_before - freq_after
+        improvement = freq_after - freq_before
 
         return {
             "qualified_queries": total,
