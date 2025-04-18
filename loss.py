@@ -35,8 +35,9 @@ class SimilarityLoss(nn.Module):
         sim_query_gen = torch.nn.functional.cosine_similarity(query_embs, gen_embs)
         sim_orig_gen = torch.nn.functional.cosine_similarity(orig_embs, gen_embs)
 
-        # Final loss: -cos(query, generated) + cos(original, generated)
-        loss = -sim_query_gen.mean() + 1*sim_orig_gen.mean()
+        # Final loss
+        lambda_param = 1.0  # Can be adjusted based on how much you want to preserve content
+        loss = -sim_query_gen.mean() + lambda_param * (1 - sim_orig_gen.mean())
         print (sim_query_gen.mean(), sim_orig_gen.mean())
         return loss
 
