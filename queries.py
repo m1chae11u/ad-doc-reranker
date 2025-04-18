@@ -10,7 +10,9 @@ classifies each ad into a domain and subdomain
 
 for each domain subdomain pair, x number (default 3) of queries are created 
 
-to run: python queries.py --input_file sampled_ads.json --output_file queries.json --num_queries 3
+saves 2 datasets, queries and domain subdomain for each ad
+
+to run: python queries.py --input_file sampled_ads.json --output_file queries.json --classified_output_file classified_ads.json --num_queries 3
 '''
 
 def load_api_key():
@@ -46,9 +48,9 @@ Known subdomains under each domain:
 {subdomain_list}
 
 Ad details:
-Headline: {ad.get("headline", "")}
-Description: {ad.get("description", "")}
-Product: {ad.get("product_name", "")}
+Headline: {ad.get("user_query", "")}
+Description: {ad.get("text", "")}
+Product: {ad.get("title", "")}
 Brand: {ad.get("brand", "")}
 
 Your task:
@@ -93,7 +95,7 @@ Respond with a numbered list.
 
     return queries[:num_queries]
 
-def process_ads(input_file: str, output_file: str, num_queries_per_subdomain: int = 3):
+def process_ads(input_file: str, output_file: str, classified_output_file: str, num_queries_per_subdomain: int = 3):
     with open(input_file, 'r', encoding='utf-8') as f:
         ads = json.load(f)
 
@@ -101,6 +103,7 @@ def process_ads(input_file: str, output_file: str, num_queries_per_subdomain: in
     domain_to_subdomains = defaultdict(lambda: defaultdict(list))
     known_domains = []
     known_subdomains = defaultdict(set)
+    classified_ads = []
 
     # Step 1: Classify ads by domain and subdomain
     for i, ad in enumerate(ads):
@@ -112,6 +115,11 @@ def process_ads(input_file: str, output_file: str, num_queries_per_subdomain: in
             known_subdomains[domain].add(subdomain)
 
         domain_to_subdomains[domain][subdomain].append(ad)
+        classified_ads.append({
+            "id": ad["ad_id"],
+            "domain": domain,
+            "subdomain": subdomain
+        })
         print(f"[{i+1}/{len(ads)}] Ad classified → Domain: {domain}, Subdomain: {subdomain}")
 
     # Step 2: Generate queries for each (domain, subdomain) pair
@@ -129,18 +137,21 @@ def process_ads(input_file: str, output_file: str, num_queries_per_subdomain: in
                     "query": q
                 })
 
-    # Step 3: Save query dataset
+    # Step 3: Save query and domain subdomain datasets
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(query_dataset, f, ensure_ascii=False, indent=2)
+    with open(classified_output_file, 'w', encoding='utf-8') as f:
+        json.dump(classified_ads, f, ensure_ascii=False, indent=2)
 
     print(f"\nSaved {len(query_dataset)} queries across {len(known_domains)} domains to {output_file}")
-
+    print(f"Saved domain/subdomain classification for {len(classified_ads)} ads to {classified_output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Group ads by domain & subdomain and generate realistic queries.")
     parser.add_argument("--input_file", type=str, required=True, help="Path to the input ad dataset (JSON list).")
     parser.add_argument("--output_file", type=str, required=True, help="Path to save the query dataset (JSON).")
+    parser.add_argument("--classified_output_file", type=str, required=True, help="Path to save domain/subdomain mapping (JSON).")
     parser.add_argument("--num_queries", type=int, default=3, help="Number of queries to generate per subdomain.")
 
     args = parser.parse_args()
-    process_ads(args.input_file, args.output_file, args.num_queries)
+    process_ads(args.input_file, args.output_file, args.classified_output_file, args.num_queries)
