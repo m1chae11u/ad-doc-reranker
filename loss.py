@@ -14,55 +14,66 @@ class SimilarityLoss(nn.Module):
         super(SimilarityLoss, self).__init__()
         self.encoder = SentenceTransformer(embedding_model_name)
 
-    def forward(self, query_texts, original_texts, generated_texts):
+    def forward(self, queries, original_doc, rewritten_doc, doc_domain, doc_subdomain):
         """
-        Compute custom loss: -cos(query, generated) + cos(original, generated)
+        Compute custom loss: 
+        - avg(cos(matching queries, rewritten_doc)) + cos(original_doc, rewritten_doc)
 
         Args:
-            query_texts: List of query texts (e.g. prompts)
-            original_texts: List of original documents
-            generated_texts: List of rewritten/generated documents
+            queries: List of dicts with keys: 'domain', 'subdomain', 'query'
+            original_doc: string
+            rewritten_doc: string
+            doc_domain: domain of doc
+            doc_subdomain: subdomain of doc
 
         Returns:
-            Total loss (scalar)
+            loss (scalar)
         """
-        with torch.no_grad():
-            query_embs = self.encoder.encode(query_texts, convert_to_tensor=True)
-            orig_embs = self.encoder.encode(original_texts, convert_to_tensor=True)
-            gen_embs = self.encoder.encode(generated_texts, convert_to_tensor=True)
+        
+        matching_queries = [q["query"] for q in queries if q["domain"] == doc_domain and q["subdomain"] == doc_subdomain]
 
-        # Compute cosine similarities
-        sim_query_gen = torch.nn.functional.cosine_similarity(query_embs, gen_embs)
-        sim_orig_gen = torch.nn.functional.cosine_similarity(orig_embs, gen_embs)
+        with torch.no_grad():
+            gen_emb = self.encoder.encode([rewritten_doc], convert_to_tensor=True).squeeze(0)
+
+            sims = []
+            for q in matching_queries:
+                q_emb = self.encoder.encode([q], convert_to_tensor=True).squeeze(0)
+                sim = torch.nn.functional.cosine_similarity(q_emb, gen_emb, dim=0)
+                sims.append(sim)
+            if sims:
+                avg_query_gen_sim = torch.stack(sims).mean()
+                
+        with torch.no_grad():
+            orig_emb = self.encoder.encode([original_doc], convert_to_tensor=True).squeeze(0)
+            gen_emb = self.encoder.encode([rewritten_doc], convert_to_tensor=True).squeeze(0)
+            sim_orig_gen = torch.nn.functional.cosine_similarity(orig_emb, gen_emb, dim=0)
 
         # Final loss
         lambda_param = 1.0  # Can be adjusted based on how much you want to preserve content
-        loss = -sim_query_gen.mean() + lambda_param * (1 - sim_orig_gen.mean())
-        print (sim_query_gen.mean(), sim_orig_gen.mean())
+        loss = -avg_query_gen_sim.mean() + lambda_param * (1 - sim_orig_gen.mean())
         return loss
 
-# Define your loss class
+# testing
+queries = [
+    {"domain": "electronics", "subdomain": "audio equipment", "query": "behringer juno chorus"},
+    {"domain": "electronics", "subdomain": "audio equipment", "query": "best USB audio interface"},
+    {"domain": "electronics", "subdomain": "monitors", "query": "studio monitors under 100"},
+]
+
+# Original and rewritten ad
+original_doc = "Behringer U-Phoria UMC22 is a 2-channel USB interface with MIDAS preamp and phantom power."
+rewritten_doc = "Get started recording music with Behringer U-Phoria UMC22, featuring MIDAS preamp and instrument input."
+doc_domain = "electronics"
+doc_subdomain = "audio equipment"
+
+# Compute the loss
 similarity_loss_fn = SimilarityLoss()
-
-# Example sentences
-query_sentence = [
-    "best dog food for puppies",
-    "how to train a puppy",
-]
-original_sentence = [
-    "x is a healthy dog food for young dogs",
-    "x is a method to train dogs effectively",
-]
-generated_sentence = [
-    "a healthy dog food for young dogs is x",
-    "x is an effective way to train puppies",
-]
-
-# Compute the loss 
 loss = similarity_loss_fn(
-    query_texts=query_sentence,
-    original_texts=original_sentence,
-    generated_texts=generated_sentence,
+    queries=queries,
+    original_doc=original_doc,
+    rewritten_doc=rewritten_doc,
+    doc_domain=doc_domain,
+    doc_subdomain=doc_subdomain
 )
 
 print("Loss:", loss.item())
