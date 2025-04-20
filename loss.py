@@ -21,8 +21,8 @@ class SimilarityLoss(nn.Module):
 
         Args:
             queries: List of dicts with keys: 'domain', 'subdomain', 'query'
-            original_doc: string
-            rewritten_doc: string
+            original_doc: original ad used to create faiss index
+            rewritten_doc: rewritten ad
             doc_domain: domain of doc
             doc_subdomain: subdomain of doc
 
