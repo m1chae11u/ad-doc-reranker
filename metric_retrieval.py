@@ -1,63 +1,92 @@
-'''
-returns how much a document moved up, measured by reciprocal ranking
-'''
+from collections import defaultdict
 
 class RetrievalMetric:
-    def __init__(self, original_ranking, rewritten_ranking):
+    def __init__(self, target_doc, queries):
         """
-        Initialize the class with the original and rewritten rankings.
-        
-        original_ranking: List of document IDs in the original ranked order.
-        rewritten_ranking: List of document IDs in the rewritten ranked order.
+        Args:
+            target_doc: {doc_id: (domain, subdomain)}
+            queries: list of dicts with 'query', 'domain', and 'subdomain'
         """
-        self.original_ranking = original_ranking
-        self.rewritten_ranking = rewritten_ranking
+        self.target_doc = target_doc
+        self.queries_by_domain = defaultdict(list)
+        self.original_rankings = {}  # {query_str: [doc_ids]}
+        self.rewritten_rankings = {}  # {query_str: [doc_ids]}
+        self.movement_by_doc = defaultdict(list)
+
+        # Group queries by domain/subdomain pair
+        for q in queries:
+            domain_pair = (q["domain"], q["subdomain"])
+            self.queries_by_domain[domain_pair].append(q["query"])
+
+    def set_rankings(self, original, rewritten):
+        self.original_rankings = original
+        self.rewritten_rankings = rewritten
 
     def reciprocal_rank(self, rank):
-        """Calculate reciprocal rank for a given position (1-based index)."""
         return 1 / rank if rank > 0 else 0
 
-    def find_rank(self, document_id, ranking_list):
-        """Find the rank of a document in the given ranking list (1-based index)."""
-        if document_id in ranking_list:
-            return ranking_list.index(document_id) + 1  # +1 to convert to 1-based index
-        else:
-            return -1  # Return -1 if the document is not found in the list
+    def find_rank(self, doc_id, ranked_list):
+        return ranked_list.index(doc_id) + 1 if doc_id in ranked_list else -1
 
-    def measure_movement(self, target_document):
-        """
-        Measure the movement of the target document using MRR.
-        
-        :param target_document: The ID of the target document to measure movement for.
-        :return: A dictionary containing the movement details.
-        """
-        # Find the rank of the target document in both rankings
-        original_rank = self.find_rank(target_document, self.original_ranking)
-        rewritten_rank = self.find_rank(target_document, self.rewritten_ranking)
-        
-        if original_rank == -1 or rewritten_rank == -1:
-            return "Target document not found in one or both rankings."
-        
-        # Calculate reciprocal ranks before and after
-        original_rr = self.reciprocal_rank(original_rank)
-        rewritten_rr = self.reciprocal_rank(rewritten_rank)
-        
-        # Calculate how much the target document has moved upwards in terms of MRR
-        movement = rewritten_rr - original_rr
-        
-        return {
-            "original_rank": original_rank,
-            "rewritten_rank": rewritten_rank,
-            "original_rr": original_rr,
-            "rewritten_rr": rewritten_rr,
-            "movement": movement
-        }
+    def evaluate_doc(self, doc_id):
+        if doc_id not in self.target_doc:
+            return
 
-# Example usage:
-original_ranking = [1, 2, 3, 4, 5, 6]  # Example original ranking
-rewritten_ranking = [3, 1, 2, 4, 5, 6]  # Example rewritten ranking
-target_document = 3  # Target document to measure
+        doc_domain = self.target_doc[doc_id]
+        relevant_queries = self.queries_by_domain.get(doc_domain, [])
 
-ranking_movement = RetrievalMetric(original_ranking, rewritten_ranking)
-result = ranking_movement.measure_movement(target_document)
-print(result['movement'])
+        for query in relevant_queries:
+            orig_ranked = self.original_rankings.get(query, [])
+            rewritten_ranked = self.rewritten_rankings.get(query, [])
+
+            orig_rank = self.find_rank(doc_id, orig_ranked)
+            rewrite_rank = self.find_rank(doc_id, rewritten_ranked)
+
+            if orig_rank == -1 or rewrite_rank == -1:
+                continue
+
+            delta = self.reciprocal_rank(rewrite_rank) - self.reciprocal_rank(orig_rank)
+            self.movement_by_doc[doc_id].append(delta)
+
+    def summarize(self):
+        all_movements = []
+        for moves in self.movement_by_doc.values():  # Each list of deltas
+            for delta in moves:                      # Each individual delta
+                all_movements.append(delta)
+        print (all_movements)
+        return sum(all_movements) / len(all_movements)
+
+# Step 1: Define document metadata
+target_doc = {
+    "doc1": ("tech", "ai")
+}
+
+# Step 2: Define related queries
+queries = [
+    {"query": "artificial intelligence tools", "domain": "tech", "subdomain": "ai"},
+    {"query": "machine learning platforms", "domain": "e", "subdomain": "ai"},
+]
+
+# Step 3: Define original rankings for each query
+original_rankings = {
+    "artificial intelligence tools": ["doc3", "doc1", "doc2"],
+    "machine learning platforms": ["doc1", "doc2", "doc3"],
+}
+
+# Step 4: Define rewritten rankings (e.g., from AI-rewritten queries)
+rewritten_rankings = {
+    "artificial intelligence tools": ["doc1", "doc2", "doc3"],
+    "machine learning platforms": ["doc1", "doc2", "doc3"],
+}
+
+# Step 5: Create and use the metric
+metric = RetrievalMetric(target_doc, queries)
+metric.set_rankings(original=original_rankings, rewritten=rewritten_rankings)
+
+# Evaluate all documents
+for doc_id in target_doc:
+    metric.evaluate_doc(doc_id)
+
+# Step 6: Summarize results
+summary = metric.summarize()
+print(summary)
