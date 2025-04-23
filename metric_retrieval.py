@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 class RetrievalMetric:
-    def __init__(self, target_doc, queries):
+    def __init__(self, target_doc, queries, ori_rankings, rewritten_rankings):
         """
         Args:
             target_doc: {doc_id: (domain, subdomain)}
@@ -9,18 +9,14 @@ class RetrievalMetric:
         """
         self.target_doc = target_doc
         self.queries_by_domain = defaultdict(list)
-        self.original_rankings = {}  # {query_str: [doc_ids]}
-        self.rewritten_rankings = {}  # {query_str: [doc_ids]}
+        self.original_rankings = ori_rankings  # {query_str: [doc_ids]}
+        self.rewritten_rankings = rewritten_rankings  # {query_str: [doc_ids]}
         self.movements = []
 
         # Group queries by domain/subdomain pair
         for q in queries:
             domain_pair = (q["domain"], q["subdomain"])
             self.queries_by_domain[domain_pair].append(q["query"])
-
-    def set_rankings(self, original, rewritten):
-        self.original_rankings = original
-        self.rewritten_rankings = rewritten
 
     def reciprocal_rank(self, rank):
         return 1 / rank if rank > 0 else 0
@@ -76,8 +72,7 @@ rewritten_rankings = {
 }
 
 # Step 5: Create and use the metric
-metric = RetrievalMetric(target_doc, queries)
-metric.set_rankings(original=original_rankings, rewritten=rewritten_rankings)
+metric = RetrievalMetric(target_doc, queries, original_rankings, rewritten_rankings)
 
 # Evaluate all documents
 for doc_id in target_doc:
