@@ -49,7 +49,7 @@ class RetrievalMetric:
             self.movements.append(delta)
 
     def summarize(self):
-        print (self.movements)
+        # print (self.movements)
         return sum(self.movements) / len(self.movements)
 
 # Step 1: Define document metadata
