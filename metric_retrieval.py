@@ -11,7 +11,7 @@ class RetrievalMetric:
         self.queries_by_domain = defaultdict(list)
         self.original_rankings = {}  # {query_str: [doc_ids]}
         self.rewritten_rankings = {}  # {query_str: [doc_ids]}
-        self.movement_by_doc = defaultdict(list)
+        self.movements = []
 
         # Group queries by domain/subdomain pair
         for q in queries:
@@ -46,15 +46,11 @@ class RetrievalMetric:
                 continue
 
             delta = self.reciprocal_rank(rewrite_rank) - self.reciprocal_rank(orig_rank)
-            self.movement_by_doc[doc_id].append(delta)
+            self.movements.append(delta)
 
     def summarize(self):
-        all_movements = []
-        for moves in self.movement_by_doc.values():  # Each list of deltas
-            for delta in moves:                      # Each individual delta
-                all_movements.append(delta)
-        print (all_movements)
-        return sum(all_movements) / len(all_movements)
+        print (self.movements)
+        return sum(self.movements) / len(self.movements)
 
 # Step 1: Define document metadata
 target_doc = {
@@ -64,7 +60,7 @@ target_doc = {
 # Step 2: Define related queries
 queries = [
     {"query": "artificial intelligence tools", "domain": "tech", "subdomain": "ai"},
-    {"query": "machine learning platforms", "domain": "e", "subdomain": "ai"},
+    {"query": "machine learning platforms", "domain": "tech", "subdomain": "ai"},
 ]
 
 # Step 3: Define original rankings for each query
