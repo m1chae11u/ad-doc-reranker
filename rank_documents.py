@@ -9,8 +9,8 @@ usage: python rank_documents.py --query_file queries_200.json --index_dir .\ds\f
 
 '''
 
-def rank_documents_using_retriever(queries, index_dir, output_path, top_k=100):
-    retriever = AdSiteRetriever(index_dir=index_dir, top_k=200)
+def rank_documents_using_retriever(queries, index_dir, output_path, top_k=200):
+    retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k)
 
     rankings = []
 
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--query_file", type=str, required=True, help="Path to JSON file containing queries.")
     parser.add_argument("--index_dir", type=str, required=True, help="Path to FAISS index directory.")
     parser.add_argument("--output_file", type=str, required=True, help="Path to save rankings.")
-    parser.add_argument("--top_k", type=int, default=100, help="Top K documents to retrieve per query.")
+    parser.add_argument("--top_k", type=int, default=200, help="Top K documents to retrieve per query.")
 
     args = parser.parse_args()
 
