@@ -61,6 +61,12 @@ def load_query_responses_from_json(path):
 
     return formatted_data
 
+def build_top_k_docs(rankings, k=5):
+    return {
+            query: info.get("ranked_ad_ids", [])[:k]
+            for query, info in rankings.items()
+        }
+
 def load_classified_ads_from_json(path):
     with open(path, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
@@ -75,7 +81,7 @@ def load_classified_ads_from_json(path):
 
     return formatted_data
 
-def main(original_ads_file, rankings, query_responses, classified_ads, output_dir, batch_size):
+def main(original_ads_file, rankings, query_responses, classified_ads, output_dir, batch_size, k):
     model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
@@ -83,11 +89,11 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
-    original_ads = load_original_ads_by_id(original_ads_file)
-    rankings = load_rankings(rankings)
-    responses = load_query_responses_from_json(query_responses)
-    classified_ads = load_classified_ads_from_json(classified_ads)
-    top_k_docs = 
+    original_ads = load_original_ads_by_id(original_ads_file) # key is id
+    rankings = load_rankings(rankings) #key is query
+    responses = load_query_responses_from_json(query_responses) # key is query
+    classified_ads = load_classified_ads_from_json(classified_ads) # key is id
+    top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
     def collate_fn(batch):
         original_ads_batch = [item["original_ad"] for item in batch] # this needs to be from raw ads
