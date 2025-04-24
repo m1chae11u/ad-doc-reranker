@@ -7,7 +7,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import RewardTrainer, RewardConfig
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
-from reward_fn import CustomRewardTrainer
+from reward_trainer import CustomRewardTrainer
 from loss import SimilarityLoss
 
 '''
@@ -108,7 +108,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
-    def reward_fn(**kwargs):
+    def total_loss_fn(**kwargs):
         inputs = tokenizer(
             [f"Original Ad: {ad['title']}\nRewrite the ad:" for ad in raw_ads],
             return_tensors="pt",
@@ -119,7 +119,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         decoded_responses = tokenizer.batch_decode(generated_responses, skip_special_tokens=True)
         raw_ads = inputs["original_ads"]
 
-        rewards = []
+        total_losses = []
         for original, rewritten in zip(raw_ads, decoded_responses):
             
             relevant_queries = [] # queries that have same domain subdomain as document
@@ -133,17 +133,19 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             for query in relevant_queries:
                 loss = loss_fn(query, original, rewritten, top_k_docs)
                 losses.append(loss)
-            rewards.append(sum(losses)/len(losses))
+            total_losses.append(sum(losses)/len(losses))
+        return (sum(total_losses) / len(total_losses))
+        # return torch.tensor(rewards)
 
-        return torch.tensor(rewards)
-
-    trainer = RewardTrainer(
+    trainer = CustomRewardTrainer(
         model=model,
-        processing_class=tokenizer,
-        args=config,
-        
+        args=config, 
+        tokenizer=tokenizer,
+        loss_fn=loss_fn,
+        responses=responses,  #
+        classified_ads=classified_ads,  
+        top_k_docs=top_k_docs,  
     )
-
 
     trainer.train()
     model.save_pretrained(output_dir)
