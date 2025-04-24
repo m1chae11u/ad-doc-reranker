@@ -84,6 +84,8 @@ def load_classified_ads_from_json(path):
 def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
     model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'}) 
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
     
     with open(original_ads_file, "r", encoding="utf-8") as f:
@@ -122,7 +124,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
     def reward_fn(samples, **kwargs):
-        decoded_responses = tokenizer.batch_decode(samples["generated_responses"], skip_special_tokens=True)
+        generated_responses = model.generate(input_ids=samples["input_ids"], attention_mask=samples["attention_mask"])
+        decoded_responses = tokenizer.batch_decode(generated_responses, skip_special_tokens=True)
         raw_ads = samples["original_ads"]
 
         rewards = []
@@ -143,13 +146,14 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
         return torch.tensor(rewards)
 
-    trainer = reward_fn(
+    trainer = RewardTrainer(
+        samples=collate_fn(raw_ads),
         model=model,
         processing_class=tokenizer,
         args=config,
         train_dataset=raw_ads,
-        compute_reward=reward_fn
     )
+
 
     trainer.train()
     model.save_pretrained(output_dir)
