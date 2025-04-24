@@ -14,7 +14,7 @@ from loss import SimilarityLoss
 Fine-tunes LLaMA 3.1 8B using REINFORCE and a custom loss function as reward.
 
 Usage:
-python reinforce_custom_loss.py --data_file ads.json --output_dir ./finetuned_model --batch_size 1
+python pipeline.py --data_file ads.json --rankings_file rankings.json --responses_file query_responses.json --ads_file classified_ads.json --output_dir ./finetuned_model --batch_size 1
 '''
 
 def load_original_ads_by_id(json_path):
@@ -81,7 +81,7 @@ def load_classified_ads_from_json(path):
 
     return formatted_data
 
-def main(original_ads_file, rankings, query_responses, classified_ads, output_dir, batch_size, k):
+def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
     model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
@@ -89,17 +89,16 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
-    original_ads = load_original_ads_by_id(original_ads_file) # key is id
-    rankings = load_rankings(rankings) #key is query
-    responses = load_query_responses_from_json(query_responses) # key is query
-    classified_ads = load_classified_ads_from_json(classified_ads) # key is id
+    # original_ads = load_original_ads_by_id(original_ads_file) # key is id
+    rankings = load_rankings(rankings_file) #key is query
+    responses = load_query_responses_from_json(query_responses_file) # key is query
+    classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
     top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
     def collate_fn(batch):
-        original_ads_batch = [item["original_ad"] for item in batch] # this needs to be from raw ads!!!
 
         inputs = tokenizer(
-            [f"Original Ad: {ad}\nRewrite the ad:" for ad in original_ads_batch],
+            [f"Original Ad: {ad['title']}\nRewrite the ad:" for ad in batch],
             return_tensors="pt",
             padding=True,
             truncation=True
@@ -108,7 +107,7 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
         return {
             "input_ids": inputs["input_ids"],
             "attention_mask": inputs["attention_mask"],
-            "original_ads": original_ads_batch,
+            "original_ads": batch,
         }
 
     config = ReinforceConfig(
@@ -148,7 +147,7 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
         model=model,
         tokenizer=tokenizer,
         args=config,
-        train_dataset=original_ads,
+        train_dataset=raw_ads,
         collate_fn=collate_fn,
         reward_fn=reward_fn,
     )
