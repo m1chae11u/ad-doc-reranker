@@ -4,17 +4,17 @@ import json
 import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from trl import ReinforceTrainer, ReinforceConfig
+from trl import RewardTrainer, RewardConfig
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
-
+from reward_fn import CustomRewardTrainer
 from loss import SimilarityLoss
 
 '''
 Fine-tunes LLaMA 3.1 8B using REINFORCE and a custom loss function as reward.
 
 Usage:
-python pipeline.py --data_file ads.json --rankings_file rankings.json --responses_file query_responses.json --ads_file classified_ads.json --output_dir ./finetuned_model --batch_size 1
+python pipeline.py --data_file ads.json --rankings_file rankings.json --responses_file query_responses.json --ads_file classified_ads.json --output_dir ./finetuned_model --batch_size 1 --k 10
 '''
 
 def load_original_ads_by_id(json_path):
@@ -82,7 +82,7 @@ def load_classified_ads_from_json(path):
     return formatted_data
 
 def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
-    model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
     
@@ -110,7 +110,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             "original_ads": batch,
         }
 
-    config = ReinforceConfig(
+    config = RewardConfig(
         output_dir=output_dir,
         per_device_train_batch_size=batch_size,
         num_train_epochs=3,
@@ -143,13 +143,12 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
         return torch.tensor(rewards)
 
-    trainer = ReinforceTrainer(
+    trainer = reward_fn(
         model=model,
-        tokenizer=tokenizer,
+        processing_class=tokenizer,
         args=config,
         train_dataset=raw_ads,
-        collate_fn=collate_fn,
-        reward_fn=reward_fn,
+        compute_reward=reward_fn
     )
 
     trainer.train()
@@ -165,6 +164,7 @@ if __name__ == "__main__":
     parser.add_argument("--ads_file", type=str, required=True, help="Path to classified ads JSON.")
     parser.add_argument("--output_dir", type=str, required=True, help="Where to save the fine-tuned model.")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size for training.")
+    parser.add_argument("--k", type=int, default=5, help="Top-k documents")  
     args = parser.parse_args()
 
     main(
@@ -173,5 +173,6 @@ if __name__ == "__main__":
         args.responses_file,
         args.ads_file,
         args.output_dir,
-        args.batch_size
+        args.batch_size,
+        args.k
     )
