@@ -25,8 +25,6 @@ class RetrievalMetric:
         return ranked_list.index(doc_id) + 1 if doc_id in ranked_list else -1
 
     def evaluate_doc(self, doc_id):
-        if doc_id not in self.target_doc:
-            return
 
         doc_domain = self.target_doc[doc_id]
         relevant_queries = self.queries_by_domain.get(doc_domain, [])
