@@ -20,8 +20,8 @@ class InclusionAccuracyMetric:
         qualified_queries = 0
         
         for query_num in range(len(self.rankings_before)):
-            before_topk = self.rankings_before[query_num]['ranked_ad_ids'][:self.k]
-            after_topk = self.rankings_after[query_num]['ranked_ad_ids'][:self.k]
+            before_topk = self.rankings_before[query_num]['ranked_ad_ids']
+            after_topk = self.rankings_after[query_num]['ranked_ad_ids']
             
             if target_doc_id in before_topk and target_doc_id in after_topk:
                 qualified_queries += 1
@@ -38,19 +38,14 @@ class InclusionAccuracyMetric:
         freq_after = included_after / total
         improvement = freq_after - freq_before
 
-        return {
-            "qualified_queries": total,
-            "inclusion_before": round(freq_before * 100, 2),
-            "inclusion_after": round(freq_after * 100, 2),
-            "inclusion_accuracy_increase": round(improvement * 100, 2)
-        }
+        return round(improvement * 100, 2)
 
 metric = InclusionAccuracyMetric(
     k=10,
-    rankings_before_path='ad-doc-reranker/rankings.json',
-    rankings_after_path='ad-doc-reranker/rankings.json',
-    inclusions_before_path='ad-doc-reranker/query_responses_original_200.json',
-    inclusions_after_path='ad-doc-reranker/query_responses_original_200.json'
+    rankings_before_path='rankings.json',
+    rankings_after_path='rankings.json',
+    inclusions_before_path='query_responses_original_200.json',
+    inclusions_after_path='query_responses_original_200.json'
 )
 
 result = metric.compute_inclusion_accuracy("a767622a-e5f8-48f9-b026-e960bb488e96")
