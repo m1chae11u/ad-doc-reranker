@@ -97,21 +97,6 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
     top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
-    def collate_fn(batch):
-
-        inputs = tokenizer(
-            [f"Original Ad: {ad['title']}\nRewrite the ad:" for ad in batch],
-            return_tensors="pt",
-            padding=True,
-            truncation=True
-        )
-
-        return {
-            "input_ids": inputs["input_ids"],
-            "attention_mask": inputs["attention_mask"],
-            "original_ads": batch,
-        }
-
     config = RewardConfig(
         output_dir=output_dir,
         per_device_train_batch_size=batch_size,
@@ -123,10 +108,16 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
-    def reward_fn(samples, **kwargs):
-        generated_responses = model.generate(input_ids=samples["input_ids"], attention_mask=samples["attention_mask"])
+    def reward_fn(**kwargs):
+        inputs = tokenizer(
+            [f"Original Ad: {ad['title']}\nRewrite the ad:" for ad in raw_ads],
+            return_tensors="pt",
+            padding=True,
+            truncation=True
+        )
+        generated_responses = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"])
         decoded_responses = tokenizer.batch_decode(generated_responses, skip_special_tokens=True)
-        raw_ads = samples["original_ads"]
+        raw_ads = inputs["original_ads"]
 
         rewards = []
         for original, rewritten in zip(raw_ads, decoded_responses):
@@ -147,11 +138,9 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         return torch.tensor(rewards)
 
     trainer = RewardTrainer(
-        samples=collate_fn(raw_ads),
         model=model,
         processing_class=tokenizer,
         args=config,
-        train_dataset=raw_ads,
     )
 
 
