@@ -35,7 +35,13 @@ class RetrievalMetric:
             orig_rank = self.find_rank(doc_id, orig_ranked)
             rewrite_rank = self.find_rank(doc_id, rewritten_ranked)
 
-            if orig_rank == -1 or rewrite_rank == -1:
+            if orig_rank == -1:
+                delta = self.reciprocal_rank(rewrite_rank) - 0
+                self.movements.append(delta)
+                continue
+            if rewrite_rank == -1:
+                delta = 0 - self.reciprocal_rank(orig_rank)
+                self.movements.append(delta)
                 continue
 
             delta = self.reciprocal_rank(rewrite_rank) - self.reciprocal_rank(orig_rank)
