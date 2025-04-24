@@ -96,7 +96,7 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
     top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
     def collate_fn(batch):
-        original_ads_batch = [item["original_ad"] for item in batch] # this needs to be from raw ads
+        original_ads_batch = [item["original_ad"] for item in batch] # this needs to be from raw ads!!!
 
         inputs = tokenizer(
             [f"Original Ad: {ad}\nRewrite the ad:" for ad in original_ads_batch],
