@@ -124,13 +124,19 @@ def main(original_ads_file, rankings, query_responses, classified_ads, output_di
 
     def reward_fn(samples, **kwargs):
         decoded_responses = tokenizer.batch_decode(samples["generated_responses"], skip_special_tokens=True)
-        original_ads = samples["original_ads"]
+        raw_ads = samples["original_ads"]
 
         rewards = []
-        for original, rewritten in zip(original_ads, decoded_responses):
-            losses = []
-            relevant_queries = []
+        for original, rewritten in zip(raw_ads, decoded_responses):
             
+            relevant_queries = [] # queries that have same domain subdomain as document
+            for query, q_info in responses.items():
+                ad_domain = classified_ads.get(original['ad_id'],{}).get("domain")
+                ad_subdomain = classified_ads.get(original['ad_id'],{}).get("subdomain")
+                if q_info.get("domain") == ad_domain and q_info.get("subdomain") == ad_subdomain:
+                    relevant_queries.append(query)
+            
+            losses = []
             for query in relevant_queries:
                 loss = loss_fn(query, original, rewritten, top_k_docs)
                 losses.append(loss)
