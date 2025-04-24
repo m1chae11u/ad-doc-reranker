@@ -47,8 +47,6 @@ class RetrievalMetric:
             delta = self.reciprocal_rank(rewrite_rank) - self.reciprocal_rank(orig_rank)
             self.movements.append(delta)
 
-    def summarize(self):
-        # print (self.movements)
         return sum(self.movements) / len(self.movements)
 
 # Step 1: Define document metadata
@@ -79,8 +77,5 @@ metric = RetrievalMetric(target_doc, queries, original_rankings, rewritten_ranki
 
 # Evaluate all documents
 for doc_id in target_doc:
-    metric.evaluate_doc(doc_id)
+    print (metric.evaluate_doc(doc_id))
 
-# Step 6: Summarize results
-summary = metric.summarize()
-print(summary)
