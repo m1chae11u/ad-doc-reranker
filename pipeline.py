@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import torch
+import random
 import numpy as np
 from transformers import AutoTokenizer
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
@@ -134,8 +135,24 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         print(f"Epoch {epoch + 1}")
         all_gen_ads = []
         for ad in tqdm(raw_ads):
+            # ---------- choose ONE query that matches this ad ----------
+            ad_domain = classified_ads.get(ad["ad_id"], {}).get("domain")
+            ad_subdomain = classified_ads.get(ad["ad_id"], {}).get("subdomain")
+            rel_queries   = [
+                q for q, qi in responses.items()
+                if qi.get("domain") == ad_domain and qi.get("subdomain") == ad_subdomain
+            ]
+            picked_query = random.choice(rel_queries) if rel_queries else ""
+            # ---------- build prompt with query + original ad ----------
+            prompt = (
+                "Rewrite the following advertisement so it ranks higher for the "
+                f"search query below while preserving meaning.\n\n"
+                f"User query: {picked_query}\n\n"
+                "Advertisement:\n"
+                f"{ad}\\n\\nRewrite:"
+            )
             # Step 1: Tokenize input
-            input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+            input_ids = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
             
             # Step 2: Generate response from the model
             gen_ids = trainer.model.generate(
