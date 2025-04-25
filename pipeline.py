@@ -4,7 +4,7 @@ import json
 import torch
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from trl import RewardTrainer, RewardConfig
+from trl import PPOConfig, PPOTrainer
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
 from reward_trainer import CustomRewardTrainer
@@ -82,11 +82,10 @@ def load_classified_ads_from_json(path):
     return formatted_data
 
 def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'}) 
-    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype=torch.bfloat16)
+    model = "meta-llama/Meta-Llama-3.1-8B-Instruct"  
+    tokenizer = AutoTokenizer.from_pretrained(model, padding_side="left")
+    tokenizer.pad_token = tokenizer.eos_token  
+    model = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
     
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
@@ -97,28 +96,27 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
     top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
-    config = RewardConfig(
-        output_dir=output_dir,
-        per_device_train_batch_size=batch_size,
-        num_train_epochs=3,
+    config = PPOConfig(
+        model_adapter_name=model,
+        learning_rate=5e-6,
+        batch_size=4,  
+        mini_batch_size=1,
         logging_steps=1,
         save_steps=100,
-        learning_rate=5e-6
+        output_dir="./ppo_output",
     )
 
+    trainer = PPOTrainer(
+        args=config,
+        model=model,
+        ref_model=None,
+        processing_class=tokenizer,
+        train_dataset=None,
+        reward_model=None  # or a module if needed
+    )
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
-    def total_loss_fn(**kwargs):
-        inputs = tokenizer(
-            [f"Original Ad: {ad['title']}\nRewrite the ad:" for ad in raw_ads],
-            return_tensors="pt",
-            padding=True,
-            truncation=True
-        )
-        generated_responses = model.generate(input_ids=inputs["input_ids"], attention_mask=inputs["attention_mask"])
-        decoded_responses = tokenizer.batch_decode(generated_responses, skip_special_tokens=True)
-        raw_ads = inputs["original_ads"]
-
+    def compute_reward(raw_ads, decoded_responses):
         total_losses = []
         for original, rewritten in zip(raw_ads, decoded_responses):
             
@@ -134,18 +132,32 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
                 loss = loss_fn(query, original, rewritten, top_k_docs)
                 losses.append(loss)
             total_losses.append(sum(losses)/len(losses))
-        return (sum(total_losses) / len(total_losses))
-        # return torch.tensor(rewards)
+        return -(sum(total_losses) / len(total_losses))
 
-    trainer = CustomRewardTrainer(
-        model=model,
-        args=config, 
-        tokenizer=tokenizer,
-        loss_fn=loss_fn,
-        responses=responses,  #
-        classified_ads=classified_ads,  
-        top_k_docs=top_k_docs,  
-    )
+    for epoch in range(3):  # number of PPO passes
+        print(f"Epoch {epoch + 1}")
+        all_gen_ads = []
+        for ad in tqdm(raw_ads):
+            # Step 1: Tokenize input
+            input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+            
+            # Step 2: Generate response from the model
+            gen_ids = trainer.model.generate(
+                input_ids,
+                max_new_tokens=50,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+
+            # Step 3: Extract text response
+            gen_text = tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
+            all_gen_ads.append(gen_text)
+
+        # Step 4: Compute reward
+        reward = compute_reward(raw_ads, all_gen_ads)
+
+            # Step 5: Pass into PPO step
+        trainer.step(raw_ads, all_gen_ads, reward)
 
     trainer.train()
     model.save_pretrained(output_dir)
