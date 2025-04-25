@@ -78,7 +78,7 @@ class AdSiteRetriever:
             List of relevant documents (chunks)
         """
         # Search the index for similar document chunks
-        chunks = self.db.similarity_search(query, k=self.top_k * 2)  # Get more chunks initially
+        chunks = self.db.similarity_search(query, k=self.top_k * 3)  # Get more chunks initially
         
         # Group by parent document and deduplicate
         seen_docs = set()
