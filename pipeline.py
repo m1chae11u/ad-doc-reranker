@@ -3,8 +3,9 @@ import os
 import json
 import torch
 import numpy as np
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from trl import PPOConfig, PPOTrainer
+from transformers import AutoTokenizer
+from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
+from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
 from reward_trainer import CustomRewardTrainer
@@ -85,8 +86,10 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     model = "meta-llama/Meta-Llama-3.1-8B-Instruct"  
     tokenizer = AutoTokenizer.from_pretrained(model, padding_side="left")
     tokenizer.pad_token = tokenizer.eos_token  
-    model = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
-    
+    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, load_in_8bit=True, device_map="auto")
+    lora_cfg = LoraConfig(r=32, lora_alpha=16,target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
+    model = get_peft_model(base, lora_cfg) # PEFT params will train
+    ref_model = model.clone().cpu().eval() # frozen reference for KL
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
@@ -97,7 +100,6 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     top_k_docs = build_top_k_docs(rankings, k) # key is query 
 
     config = PPOConfig(
-        model_adapter_name=model,
         learning_rate=5e-6,
         batch_size=4,  
         mini_batch_size=1,
@@ -106,14 +108,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         output_dir="./ppo_output",
     )
 
-    trainer = PPOTrainer(
-        args=config,
-        model=model,
-        ref_model=None,
-        processing_class=tokenizer,
-        train_dataset=None,
-        reward_model=None  # or a module if needed
-    )
+
+    trainer = PPOTrainer(config, model, ref_model, tokenizer)
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
     def compute_reward(raw_ads, decoded_responses):
@@ -154,10 +150,13 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             all_gen_ads.append(gen_text)
 
         # Step 4: Compute reward
-        reward = compute_reward(raw_ads, all_gen_ads)
+        rewards = torch.tensor(
+            [compute_reward([orig], [gen]) for orig, gen
+             in zip(raw_ads, all_gen_ads)]
+        ).to(model.device)
 
             # Step 5: Pass into PPO step
-        trainer.step(raw_ads, all_gen_ads, reward)
+        trainer.step(input_ids, gen_ids, rewards)
 
     trainer.train()
     model.save_pretrained(output_dir)
