@@ -2,14 +2,14 @@ import argparse
 import os
 import json
 import torch
+import copy
 import random
 import numpy as np
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
 from tqdm import tqdm
-from reward_trainer import CustomRewardTrainer
 from loss import SimilarityLoss
 
 '''
@@ -63,9 +63,9 @@ def load_query_responses_from_json(path):
 
     return formatted_data
 
-def build_top_k_docs(rankings, k=5):
+def build_top_k_docs(rankings):
     return {
-            query: info.get("ranked_ad_ids", [])[:k]
+            query: info.get("ranked_ad_ids", [])
             for query, info in rankings.items()
         }
 
@@ -84,13 +84,21 @@ def load_classified_ads_from_json(path):
     return formatted_data
 
 def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
-    model = "meta-llama/Meta-Llama-3.1-8B-Instruct"  
+    model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model, padding_side="left")
-    tokenizer.pad_token = tokenizer.eos_token  
-    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, load_in_8bit=True, device_map="auto")
-    lora_cfg = LoraConfig(r=32, lora_alpha=16,target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
-    model = get_peft_model(base, lora_cfg) # PEFT params will train
-    ref_model = model.clone().cpu().eval() # frozen reference for KL
+    tokenizer.pad_token = tokenizer.eos_token  # Set pad token to eos token
+
+    # Load the base model for PPO
+    # base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda()
+
+    # Lora config setup
+    lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
+    peft_model = get_peft_model(base, lora_cfg)  # PEFT params will train
+
+    # Create a reference model without LoRA modifications (used for PPO)
+    ref_model = copy.deepcopy(peft_model).eval()
+    
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
@@ -98,9 +106,10 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     rankings = load_rankings(rankings_file) #key is query
     responses = load_query_responses_from_json(query_responses_file) # key is query
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
-    top_k_docs = build_top_k_docs(rankings, k) # key is query 
+    top_k_docs = build_top_k_docs(rankings) # key is query, mapped to list of ids
 
     config = PPOConfig(
+        model_adapter_name=base,
         learning_rate=5e-6,
         batch_size=4,  
         mini_batch_size=1,
@@ -108,11 +117,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         save_steps=100,
         output_dir="./ppo_output",
     )
-
-
-    trainer = PPOTrainer(config, model, ref_model, tokenizer)
-    loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
-
+    
     def compute_reward(raw_ads, decoded_responses):
         total_losses = []
         for original, rewritten in zip(raw_ads, decoded_responses):
@@ -125,32 +130,21 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
                     relevant_queries.append(query)
             
             losses = []
-            for query in relevant_queries:
+            for query in random.sample(relevant_queries, 8):
                 loss = loss_fn(query, original, rewritten, top_k_docs)
                 losses.append(loss)
             total_losses.append(sum(losses)/len(losses))
         return -(sum(total_losses) / len(total_losses))
 
+    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None, value_model=None)
+    loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
+
+    
+
     for epoch in range(3):  # number of PPO passes
         print(f"Epoch {epoch + 1}")
         all_gen_ads = []
         for ad in tqdm(raw_ads):
-            # ---------- choose ONE query that matches this ad ----------
-            ad_domain = classified_ads.get(ad["ad_id"], {}).get("domain")
-            ad_subdomain = classified_ads.get(ad["ad_id"], {}).get("subdomain")
-            rel_queries   = [
-                q for q, qi in responses.items()
-                if qi.get("domain") == ad_domain and qi.get("subdomain") == ad_subdomain
-            ]
-            picked_query = random.choice(rel_queries) if rel_queries else ""
-            # ---------- build prompt with query + original ad ----------
-            prompt = (
-                "Rewrite the following advertisement so it ranks higher for the "
-                f"search query below while preserving meaning.\n\n"
-                f"User query: {picked_query}\n\n"
-                "Advertisement:\n"
-                f"{ad}\\n\\nRewrite:"
-            )
             # Step 1: Tokenize input
             input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
             
@@ -167,9 +161,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             all_gen_ads.append(gen_text)
 
         # Step 4: Compute reward
-        rewards = torch.tensor(
-            [compute_reward([orig], [gen]) for orig, gen
-             in zip(raw_ads, all_gen_ads)]
+        rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
         ).to(model.device)
 
             # Step 5: Pass into PPO step
