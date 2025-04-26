@@ -63,11 +63,11 @@ def load_query_responses_from_json(path):
 
     return formatted_data
 
-def build_top_k_docs(rankings):
+def build_top_k_docs(rankings, original_ads_by_id):
     return {
-            query: info.get("ranked_ad_ids", [])
-            for query, info in rankings.items()
-        }
+        query: [original_ads_by_id[ad_id] for ad_id in info.get("ranked_ad_ids", []) if ad_id in original_ads_by_id]
+        for query, info in rankings.items()
+    }
 
 def load_classified_ads_from_json(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -102,11 +102,11 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
-    # original_ads = load_original_ads_by_id(original_ads_file) # key is id
+    original_ads = load_original_ads_by_id(original_ads_file) # key is id
     rankings = load_rankings(rankings_file) #key is query
     responses = load_query_responses_from_json(query_responses_file) # key is query
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
-    top_k_docs = build_top_k_docs(rankings) # key is query, mapped to list of ids
+    top_k_docs = build_top_k_docs(rankings, original_ads) # key is query, mapped to list of ids
 
     config = PPOConfig(
         model_adapter_name=base,
@@ -138,8 +138,6 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
     trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None, value_model=None)
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
-
-    
 
     for epoch in range(3):  # number of PPO passes
         print(f"Epoch {epoch + 1}")
