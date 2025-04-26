@@ -90,7 +90,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
     # Load the base model for PPO
     # base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
-    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
 
     # Lora config setup
     lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
