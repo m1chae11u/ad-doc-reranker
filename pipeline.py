@@ -152,7 +152,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
                 f"{ad}\\n\\nRewrite:"
             )
             # Step 1: Tokenize input
-            input_ids = tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+            input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
             
             # Step 2: Generate response from the model
             gen_ids = trainer.model.generate(
