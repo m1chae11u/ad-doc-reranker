@@ -9,6 +9,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
+from metric_retrieval import RetrievalMetric
+from metric_inclusion import InclusionAccuracyMetric
 from tqdm import tqdm
 from loss import SimilarityLoss
 
@@ -156,7 +158,29 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
             # Step 3: Extract text response
             gen_text = tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
-            all_gen_ads.append(gen_text)
+            all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
+
+        rewritten_rankings = {
+            q: info | {"ranked_ad_ids": info["ranked_ad_ids"]}  
+            for q, info in rankings.items()
+        }
+        responses_after = [
+            {
+                "query": q,
+                "response": r["rewrite"],
+                "documents_in_response": [r["ad_id"]],
+            }
+            for q, r in zip(responses.keys(), all_gen_ads)
+        ]
+        delta_mrr = RetrievalMetric(rankings, rewritten_rankings).compute_global_delta()
+        delta_dir = InclusionAccuracyMetric(
+            k=10,
+            rankings_before_dict=rankings,
+            rankings_after_dict=rewritten_rankings,
+            inclusions_before_dict=responses,  # original
+            inclusions_after_dict=responses_after    # new
+        ).compute_global_delta()
+        print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
 
         # Step 4: Compute reward
         rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
