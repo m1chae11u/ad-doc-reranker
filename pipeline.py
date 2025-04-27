@@ -111,6 +111,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
     peft_model = get_peft_model(base, lora_cfg)  # PEFT params will train
 
+    base.pretrained_model.generation_config.eos_token_id = tokenizer.eos_token_id
+
     # Create a reference model without LoRA modifications (used for PPO)
     ref_model = copy.deepcopy(peft_model).eval()
     
