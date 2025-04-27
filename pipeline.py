@@ -135,9 +135,6 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         save_steps=100,
         output_dir="./ppo_output",
     )
-
-    def reward_fn():
-        return compute_reward([compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)])
     
     def compute_reward(raw_ads, decoded_responses):
         total_losses = []
