@@ -169,7 +169,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             input_ids = tokenizer(ad['text'], return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
             
             # Step 2: Generate response from the model
-            gen_ids = trainer.model.policy_model.generate(
+            gen_ids = base.generate(
                 input_ids,
                 max_new_tokens=50,
                 pad_token_id=tokenizer.pad_token_id,
