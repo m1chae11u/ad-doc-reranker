@@ -1,18 +1,8 @@
-"""
-sft.py
-This script is responsible for preparing and fine-tuning a language model on a self-supervised task using a dataset of commercial ads. The process involves the following steps:
-1. Loads a dataset of commercial ads from a CSV file, which includes ad descriptions.
-2. Prepares a dataset for self-supervised fine-tuning (SFT), where the model is trained to reproduce the original document.
-3. Performs the SFT fine-tuning and saves checkpoints after each epoch.
-4. Saves the fine-tuned model and tokenizer for further use in the pipeline.
-
-Usage:
-    python sft.py --csv_file /path/to/commercial_ads.csv --output_dir /datapath --batch_size 8 --epochs 3
-"""
 import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
+import json
 from transformers import (
     AutoTokenizer, 
     AutoModelForCausalLM,
@@ -25,16 +15,12 @@ from typing import Dict, List, Union, Optional
 
 class AdDataset(Dataset):
     def __init__(self, 
-                 csv_file: str, 
+                 json_file: str, 
                  tokenizer,
                  max_length: int = 512):
-        self.data = pd.read_csv(
-            csv_file, 
-            sep='\t', 
-            header=None, 
-            names=['ad_id', 'product_id', 'query', 'title', 'description', 
-                   'landing_page_url', 'landing_page_name', 'brand_name', 'target', 'image_url']
-        )
+        with open(json_file, 'r') as file:
+            self.data = json.load(file)
+        
         self.tokenizer = tokenizer
         self.max_length = max_length
         
@@ -42,15 +28,15 @@ class AdDataset(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        row = self.data.iloc[idx]
-        original_document = row['description'] if pd.notnull(row['description']) else ""
+        ad = self.data[idx]
+        original_document = ad['description'] if 'description' in ad else ""
         
         prompt = f"Original document:\n{original_document}\n\nRewrite the document:"
         completion = original_document
         
         full_text = f"{prompt} {completion}{self.tokenizer.eos_token}"
         
-        #Tokenize the text
+        # Tokenize the text
         encodings = self.tokenizer(
             full_text,
             max_length=self.max_length,
@@ -79,7 +65,7 @@ def train_sft_model(
     gradient_accumulation_steps: int = 1
 ) -> AutoModelForCausalLM:
     
-    # Load model and tokenizer
+    # Load the pre-trained model
     model = AutoModelForCausalLM.from_pretrained(model_name)
     
     training_args = TrainingArguments(
@@ -114,19 +100,19 @@ def train_sft_model(
     return model
 
 def get_sft_dataset(
-    csv_file: str, 
+    json_file: str, 
     tokenizer, 
     max_length: int = 512
 ) -> AdDataset:
-    return AdDataset(csv_file, tokenizer, max_length)
+    return AdDataset(json_file, tokenizer, max_length)
 
-def main(csv_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
+def main(json_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
 
     model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     
-    dataset = get_sft_dataset(csv_file, tokenizer)
+    dataset = get_sft_dataset(json_file, tokenizer)
     
     train_dataloader = DataLoader(
         dataset, 
@@ -148,11 +134,11 @@ def main(csv_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Fine-tune a language model on self-supervised task using ad data.")
-    parser.add_argument("--csv_file", type=str, required=True, help="Path to CSV file containing ad data.")
+    parser.add_argument("--json_file", type=str, required=True, help="Path to JSON file containing ad data.")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save the model and tokenizer.")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for DataLoader.")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs for fine-tuning.")
     
     args = parser.parse_args()
     
-    main(args.csv_file, args.output_dir, args.batch_size, args.epochs)
+    main(args.json_file, args.output_dir, args.batch_size, args.epochs)
