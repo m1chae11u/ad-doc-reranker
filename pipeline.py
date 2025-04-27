@@ -104,14 +104,14 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     tokenizer.pad_token = tokenizer.eos_token  # Set pad token to eos token
 
     # Load the base model for PPO
-    # base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
-    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
+    base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    # base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
 
     # Lora config setup
     lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
     peft_model = get_peft_model(base, lora_cfg)  # PEFT params will train
 
-    base.pretrained_model.generation_config.eos_token_id = tokenizer.eos_token_id
+    # base.pretrained_model.generation_config.eos_token_id = tokenizer.eos_token_id
 
     # Create a reference model without LoRA modifications (used for PPO)
     ref_model = copy.deepcopy(peft_model).eval()
@@ -135,6 +135,9 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         save_steps=100,
         output_dir="./ppo_output",
     )
+
+    def reward_fn():
+        return compute_reward([compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)])
     
     def compute_reward(raw_ads, decoded_responses):
         total_losses = []
@@ -148,13 +151,14 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
                     relevant_queries.append(query)
             
             losses = []
-            for query in random.sample(relevant_queries, 8):
+            sample_size = min(len(relevant_queries),8)
+            for query in random.sample(relevant_queries, sample_size):
                 loss = loss_fn(query, original, rewritten, top_k_docs)
                 losses.append(loss)
             total_losses.append(sum(losses)/len(losses))
         return -(sum(total_losses) / len(total_losses))
 
-    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None)
+    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=raw_ads, reward_model=base, value_model=base)
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
     for epoch in range(3):  # number of PPO passes
@@ -162,10 +166,10 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         all_gen_ads = []
         for ad in tqdm(raw_ads):
             # Step 1: Tokenize input
-            input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+            input_ids = tokenizer(ad['text'], return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
             
             # Step 2: Generate response from the model
-            gen_ids = trainer.model.generate(
+            gen_ids = trainer.model.policy_model.generate(
                 input_ids,
                 max_new_tokens=50,
                 pad_token_id=tokenizer.pad_token_id,
