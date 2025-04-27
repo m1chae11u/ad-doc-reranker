@@ -154,7 +154,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             total_losses.append(sum(losses)/len(losses))
         return -(sum(total_losses) / len(total_losses))
 
-    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None, value_model=None)
+    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None)
     loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
 
     for epoch in range(3):  # number of PPO passes
