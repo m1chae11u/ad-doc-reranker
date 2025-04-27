@@ -52,7 +52,7 @@ def format_queries(path):
     with open(path, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
         
-    formatted_queries = {}
+    formatted_queries = []
     for item in raw_data:
         formatted_queries.append({
             "query": item["query"],  
