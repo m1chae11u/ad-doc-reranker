@@ -48,6 +48,19 @@ def load_rankings(rankings_path):
 
     return formatted_data
 
+def format_queries(path):
+    with open(path, "r", encoding="utf-8") as f:
+        raw_data = json.load(f)
+        
+    formatted_queries = {}
+    for item in raw_data:
+        formatted_queries.append({
+            "query": item["query"],  
+            "domain": item["domain"],
+            "subdomain": item["subdomain"]
+        })
+    return formatted_queries
+
 def load_query_responses_from_json(path):
     with open(path, "r", encoding="utf-8") as f:
         raw_data = json.load(f)
@@ -105,7 +118,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         raw_ads = json.load(f)
 
     original_ads = load_original_ads_by_id(original_ads_file) # key is id
-    rankings = load_rankings(rankings_file) #key is query
+    rankings = load_rankings(rankings_file) # key is query
+    queries = format_queries(query_responses_file) # list of queries w/ domain & subdomain
     responses = load_query_responses_from_json(query_responses_file) # key is query
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
     top_k_docs = build_top_k_docs(rankings, original_ads) # key is query, mapped to list of ids
@@ -160,33 +174,23 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             gen_text = tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
             all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
 
-        rewritten_rankings = {
-            q: info | {"ranked_ad_ids": info["ranked_ad_ids"]}  
-            for q, info in rankings.items()
-        }
-        responses_after = [
-            {
-                "query": q,
-                "response": r["rewrite"],
-                "documents_in_response": [r["ad_id"]],
-            }
-            for q, r in zip(responses.keys(), all_gen_ads)
-        ]
-        delta_mrr = RetrievalMetric(rankings, rewritten_rankings).compute_global_delta()
-        delta_dir = InclusionAccuracyMetric(
-            k=10,
-            rankings_before_dict=rankings,
-            rankings_after_dict=rewritten_rankings,
-            inclusions_before_dict=responses,  # original
-            inclusions_after_dict=responses_after    # new
-        ).compute_global_delta()
-        print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
+            
+            
+            delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
+            delta_dir = InclusionAccuracyMetric(
+                k=10,
+                rankings_before_dict=rankings,
+                rankings_after_dict=rewritten_rankings,
+                inclusions_before_dict=responses,  # original
+                inclusions_after_dict=responses_after    # new
+            ).compute_inclusion_accuracy(ad["ad_id"])
+            print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
 
         # Step 4: Compute reward
         rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
         ).to(model.device)
 
-            # Step 5: Pass into PPO step
+        # Step 5: Pass into PPO step
         trainer.step(input_ids, gen_ids, rewards)
 
     trainer.train()
