@@ -13,6 +13,14 @@ from transformers import (
 import argparse
 from typing import Dict, List, Union, Optional
 
+'''
+for some reason need to do this first: pip install "numpy<2" --upgrade
+
+usage: 
+python sft.py --json_file sampled_ads_200.json --output_dir sft_output --batch_size 4 --epochs 3
+
+'''
+
 class AdDataset(Dataset):
     def __init__(self, 
                  json_file: str, 
