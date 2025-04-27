@@ -18,7 +18,7 @@ from loss import SimilarityLoss
 Fine-tunes LLaMA 3.1 8B using REINFORCE and a custom loss function as reward.
 
 Usage:
-python pipeline.py --data_file ads.json --rankings_file rankings.json --responses_file query_responses.json --ads_file classified_ads.json --output_dir ./finetuned_model --batch_size 1 --k 10
+python pipeline.py --data_file sampled_ads_200.json --rankings_file rankings.json --responses_file query_responses_original_200.json --ads_file classified_ads_200.json --output_dir finetuned_model --batch_size 1 --k 10
 '''
 
 def load_original_ads_by_id(json_path):
@@ -176,15 +176,15 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
             
             
-            delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
-            delta_dir = InclusionAccuracyMetric(
-                k=10,
-                rankings_before_dict=rankings,
-                rankings_after_dict=rewritten_rankings,
-                inclusions_before_dict=responses,  # original
-                inclusions_after_dict=responses_after    # new
-            ).compute_inclusion_accuracy(ad["ad_id"])
-            print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
+            # delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
+            # delta_dir = InclusionAccuracyMetric(
+            #     k=10,
+            #     rankings_before_dict=rankings,
+            #     rankings_after_dict=rewritten_rankings,
+            #     inclusions_before_dict=responses,  # original
+            #     inclusions_after_dict=responses_after    # new
+            # ).compute_inclusion_accuracy(ad["ad_id"])
+            # print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
 
         # Step 4: Compute reward
         rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
