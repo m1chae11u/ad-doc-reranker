@@ -8,3 +8,4 @@ numpy
 google-generativeai
 langchain-community
 langchain-huggingface
+trl
