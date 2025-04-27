@@ -1,88 +1,158 @@
-import argparse
+"""
+sft.py
+This script is responsible for preparing and fine-tuning a language model on a self-supervised task using a dataset of commercial ads. The process involves the following steps:
+1. Loads a dataset of commercial ads from a CSV file, which includes ad descriptions.
+2. Prepares a dataset for self-supervised fine-tuning (SFT), where the model is trained to reproduce the original document.
+3. Performs the SFT fine-tuning and saves checkpoints after each epoch.
+4. Saves the fine-tuned model and tokenizer for further use in the pipeline.
+
+Usage:
+    python sft.py --csv_file /path/to/commercial_ads.csv --output_dir /datapath --batch_size 8 --epochs 3
+"""
 import os
-import json
 import torch
-from torch.utils.data import Dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
-from peft import LoraConfig, get_peft_model
+from torch.utils.data import Dataset, DataLoader
+import pandas as pd
+from transformers import (
+    AutoTokenizer, 
+    AutoModelForCausalLM,
+    Trainer, 
+    TrainingArguments,
+    DataCollatorForLanguageModeling
+)
+import argparse
+from typing import Dict, List, Union, Optional
 
-class AdRewriteDataset(Dataset):
-    def __init__(self, data, tokenizer):
-        self.data = data
+class AdDataset(Dataset):
+    def __init__(self, 
+                 csv_file: str, 
+                 tokenizer,
+                 max_length: int = 512):
+        self.data = pd.read_csv(
+            csv_file, 
+            sep='\t', 
+            header=None, 
+            names=['ad_id', 'product_id', 'query', 'title', 'description', 
+                   'landing_page_url', 'landing_page_name', 'brand_name', 'target', 'image_url']
+        )
         self.tokenizer = tokenizer
-
-    def __len__(self):
+        self.max_length = max_length
+        
+    def __len__(self) -> int:
         return len(self.data)
-
-    def __getitem__(self, idx):
-        ad = self.data[idx]
-        input_text = ad["original"]
-        target_text = ad["rewrite"]
-
-        inputs = self.tokenizer(input_text, truncation=True, padding="max_length", max_length=512, return_tensors="pt")
-        labels = self.tokenizer(target_text, truncation=True, padding="max_length", max_length=512, return_tensors="pt")["input_ids"]
-        labels[labels == self.tokenizer.pad_token_id] = -100  # mask pad tokens
-
+    
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        row = self.data.iloc[idx]
+        original_document = row['description'] if pd.notnull(row['description']) else ""
+        
+        prompt = f"Original document:\n{original_document}\n\nRewrite the document:"
+        completion = original_document
+        
+        full_text = f"{prompt} {completion}{self.tokenizer.eos_token}"
+        
+        #Tokenize the text
+        encodings = self.tokenizer(
+            full_text,
+            max_length=self.max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt"
+        )
+        
         return {
-            "input_ids": inputs["input_ids"].squeeze(0),
-            "attention_mask": inputs["attention_mask"].squeeze(0),
-            "labels": labels.squeeze(0),
+            "input_ids": encodings["input_ids"][0],
+            "attention_mask": encodings["attention_mask"][0],
+            "labels": encodings["input_ids"][0].clone() 
         }
 
-def train_sft(data_path, output_dir, batch_size=1):
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-
-    tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
-    tokenizer.pad_token = tokenizer.eos_token
-
-    base_model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
-
-    lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
-    model = get_peft_model(base_model, lora_cfg)
-
-    with open(data_path, "r", encoding="utf-8") as f:
-        raw_ads = json.load(f)
-
-    dataset = AdRewriteDataset(raw_ads, tokenizer)
-
+def train_sft_model(
+    model_name: str,
+    train_dataloader: DataLoader,
+    output_dir: str,
+    epochs: int,
+    logging_steps: int = 100,
+    save_steps: int = 500,
+    learning_rate: float = 2e-5,
+    weight_decay: float = 0.01,
+    warmup_steps: int = 500,
+    fp16: bool = True,
+    gradient_accumulation_steps: int = 1
+) -> AutoModelForCausalLM:
+    
+    # Load model and tokenizer
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    
     training_args = TrainingArguments(
         output_dir=output_dir,
-        evaluation_strategy="steps",
-        eval_steps=200,
-        logging_steps=50,
-        save_steps=500,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=4,
-        num_train_epochs=3,
-        learning_rate=2e-5,
-        weight_decay=0.01,
-        bf16=True,
-        save_total_limit=2,
-        logging_dir=os.path.join(output_dir, "logs"),
-        report_to="none",
+        num_train_epochs=epochs,
+        per_device_train_batch_size=train_dataloader.batch_size,
+        save_strategy="steps",
+        save_steps=save_steps,
+        logging_steps=logging_steps,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        warmup_steps=warmup_steps,
+        fp16=fp16,
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        overwrite_output_dir=True,
+        save_total_limit=3,  # Keep only the 3 most recent checkpoints
     )
-
+    
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=dataset,
-        tokenizer=tokenizer,
+        train_dataset=train_dataloader.dataset,
+        data_collator=DataCollatorForLanguageModeling(
+            tokenizer=train_dataloader.dataset.tokenizer,
+            mlm=False  # We're not using masked language modeling
+        )
     )
-
+    
     trainer.train()
+    trainer.save_model(output_dir)
+    
+    return model
 
-    model.save_pretrained(output_dir)
+def get_sft_dataset(
+    csv_file: str, 
+    tokenizer, 
+    max_length: int = 512
+) -> AdDataset:
+    return AdDataset(csv_file, tokenizer, max_length)
+
+def main(csv_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
+
+    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    
+    dataset = get_sft_dataset(csv_file, tokenizer)
+    
+    train_dataloader = DataLoader(
+        dataset, 
+        batch_size=batch_size, 
+        shuffle=True
+    )
+    
+    fine_tuned_model = train_sft_model(
+        model_name=model_name,
+        train_dataloader=train_dataloader,
+        output_dir=output_dir,
+        epochs=epochs
+    )
+    
     tokenizer.save_pretrained(output_dir)
-
-def parse_args_and_run():
-    parser = argparse.ArgumentParser(description="Run supervised fine-tuning (SFT) on ad rewrites.")
-    parser.add_argument("--data_file", type=str, required=True, help="Path to the ad rewrite JSON file.")
-    parser.add_argument("--output_dir", type=str, required=True, help="Output dir for model artifacts.")
-    parser.add_argument("--batch_size", type=int, default=1, help="Training batch size.")
-
-    args = parser.parse_args()
-    train_sft(args.data_file, args.output_dir, args.batch_size)
+    
+    print(f"Model and tokenizer saved to {output_dir}")
 
 if __name__ == "__main__":
-    parse_args_and_run()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Fine-tune a language model on self-supervised task using ad data.")
+    parser.add_argument("--csv_file", type=str, required=True, help="Path to CSV file containing ad data.")
+    parser.add_argument("--output_dir", type=str, required=True, help="Directory to save the model and tokenizer.")
+    parser.add_argument("--batch_size", type=int, default=8, help="Batch size for DataLoader.")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs for fine-tuning.")
+    
+    args = parser.parse_args()
+    
+    main(args.csv_file, args.output_dir, args.batch_size, args.epochs)
