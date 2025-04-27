@@ -9,6 +9,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
+from rank_documents import DocumentRanker
 from metric_retrieval import RetrievalMetric
 from metric_inclusion import InclusionAccuracyMetric
 from tqdm import tqdm
@@ -175,6 +176,9 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
 
             
+
+            responses_after = 
+            rewritten_rankings = DocumentRanker(index_dir="./ds/faiss_index_rewritten/", top_k=10)
             
             delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
             delta_dir = InclusionAccuracyMetric(
