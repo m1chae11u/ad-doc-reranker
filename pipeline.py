@@ -150,7 +150,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             losses = []
             sample_size = min(len(relevant_queries),8)
             for query in random.sample(relevant_queries, sample_size):
-                loss = loss_fn(query, original, rewritten, top_k_docs)
+                docs_for_query = top_k_docs.get(query, [])
+                loss = loss_fn(query, original, rewritten, docs_for_query)
                 losses.append(loss)
             total_losses.append(sum(losses)/len(losses))
         return -(sum(total_losses) / len(total_losses))
@@ -191,12 +192,12 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
         # Step 4: Compute reward
         rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
-        ).to(model.device)
+        ).cuda()
 
         # Step 5: Pass into PPO step
-        trainer.step(input_ids, gen_ids, rewards)
+        #trainer.step(input_ids, gen_ids, rewards)
 
-    trainer.train()
+        trainer.train()
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     print(f"Model fine-tuned and saved to {output_dir}")
