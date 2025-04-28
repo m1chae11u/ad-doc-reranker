@@ -195,10 +195,20 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     similarity_loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
     reward_model = CustomRewardModel(tokenizer, base, similarity_loss_fn)
 
-    train_dataset = [
-        tokenizer(ad["text"], return_tensors="pt", padding="max_length", truncation=True, max_length=512)
-        for ad in raw_ads
-    ]
+
+    train_dataset = []
+    for ad in raw_ads:
+        enc = tokenizer(                       # keeps Python lists
+            ad["text"],
+            truncation=True,
+            max_length=512,
+            padding=False          # no padding yet
+        )
+        # convert to tensors & drop the implicit batch axis
+        train_dataset.append({
+            "input_ids":      torch.tensor(enc["input_ids"],      dtype=torch.long),
+            "attention_mask": torch.tensor(enc["attention_mask"], dtype=torch.long),
+        })
 
     trainer = PPOTrainer(
         args=config,
