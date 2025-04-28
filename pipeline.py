@@ -206,7 +206,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         ref_model=ref_model,
         processing_class=tokenizer,
         train_dataset=train_dataset,
-        reward_model=CustomRewardModel, 
+        reward_model=reward_model, 
         value_model=base,
     )
 
