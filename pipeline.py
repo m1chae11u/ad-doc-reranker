@@ -159,17 +159,18 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     tokenizer.pad_token = tokenizer.eos_token  # Set pad token to eos token
 
     # Load the base model for PPO
-    base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
-    # base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
+    # base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
 
     # Lora config setup
     lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
     peft_model = get_peft_model(base, lora_cfg)  # PEFT params will train
-
-    # base.pretrained_model.generation_config.eos_token_id = tokenizer.eos_token_id
+    peft_model.pretrained_model.config.return_dict = True
+    peft_model.config.return_dict = True
 
     # Create a reference model without LoRA modifications (used for PPO)
-    ref_model = copy.deepcopy(peft_model).eval()
+    ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    ref_model.config.return_dict = True
     
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
@@ -212,12 +213,12 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
 
     trainer = PPOTrainer(
         args=config,
-        model=base,
+        model=peft_model.pretrained_model,
         ref_model=ref_model,
         processing_class=tokenizer,
         train_dataset=train_dataset,
         reward_model=reward_model, 
-        value_model=base,
+        value_model=peft_model.pretrained_model,
     )
 
     trainer.train()
