@@ -87,3 +87,18 @@ Please provide a helpful, informative response directed to the user based on the
 
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
+# Path to your FAISS index directory
+index_dir = "faiss_index"
+
+# Instantiate the RAGGenerator
+rag = RAGGenerator(index_dir=index_dir, top_k=10, use_full_docs=True)
+
+# Example list of queries
+with open("queries_200.json", 'r', encoding='utf-8') as f:
+    queries = json.load(f)
+
+# Output file path
+output_file = "generated_responses.json"
+
+# Call batch_generate
+rag.batch_generate(queries, output_file)
