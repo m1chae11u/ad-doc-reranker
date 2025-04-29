@@ -16,6 +16,8 @@ from typing import Dict, List, Union, Optional
 '''
 for some reason need to do this first: pip install "numpy<2" --upgrade
 
+pip install -U bitsandbytes accelerate
+
 usage: 
 python sft.py --json_file sampled_ads_200.json --output_dir sft_output --batch_size 4 --epochs 3
 
@@ -74,22 +76,30 @@ def train_sft_model(
 ) -> AutoModelForCausalLM:
     
     # Load the pre-trained model
-    model = AutoModelForCausalLM.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        device_map="auto",
+        torch_dtype=torch.bfloat16)
+    model.gradient_checkpointing_enable()
     
     training_args = TrainingArguments(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=train_dataloader.batch_size,
-        save_strategy="steps",
-        save_steps=save_steps,
+        #save_strategy="steps",
+        #save_steps=save_steps,
         logging_steps=logging_steps,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
         warmup_steps=warmup_steps,
-        fp16=fp16,
+        bf16=True, 
+        save_strategy="no",
+        save_only_model=True,
+        save_safetensors=False,
+        optim="paged_adamw_8bit",
         gradient_accumulation_steps=gradient_accumulation_steps,
         overwrite_output_dir=True,
-        save_total_limit=3,  # Keep only the 3 most recent checkpoints
+        #save_total_limit=3,  # Keep only the 3 most recent checkpoints
     )
     
     trainer = Trainer(
@@ -103,7 +113,7 @@ def train_sft_model(
     )
     
     trainer.train()
-    trainer.save_model(output_dir)
+    model.save_pretrained(output_dir, safe_serialization=False, max_shard_size="5GB")  
     
     return model
 
