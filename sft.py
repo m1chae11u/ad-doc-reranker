@@ -19,7 +19,7 @@ for some reason need to do this first: pip install "numpy<2" --upgrade
 pip install -U bitsandbytes accelerate
 
 usage: 
-python sft.py --json_file sampled_ads_200.json --output_dir sft_output --batch_size 4 --epochs 3
+python sft.py --json_file sampled_ads_200.json --output_dir sft_output --batch_size 1 --epochs 3
 
 '''
 
@@ -39,7 +39,7 @@ class AdDataset(Dataset):
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         ad = self.data[idx]
-        original_document = ad['description'] if 'description' in ad else ""
+        original_document = ad['text'] if 'text' in ad else ""
         
         prompt = f"Original document:\n{original_document}\n\nRewrite the document:"
         completion = original_document
