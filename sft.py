@@ -14,12 +14,10 @@ import argparse
 from typing import Dict, List, Union, Optional
 
 '''
-for some reason need to do this first: pip install "numpy<2" --upgrade
-
 pip install -U bitsandbytes accelerate
 
 usage: 
-python sft.py --json_file sampled_ads_200.json --output_dir sft_output --batch_size 1 --epochs 3
+python sft.py --json_file faiss_index/sampled_ads_200.json --output_dir sft_output --batch_size 1 --epochs 3
 
 '''
 
@@ -113,7 +111,28 @@ def train_sft_model(
     )
     
     trainer.train()
-    model.save_pretrained(output_dir, safe_serialization=False, max_shard_size="5GB")  
+    import shutil
+
+    def safe_model_save(model, output_dir, min_required_gb=10):
+        total, used, free = shutil.disk_usage(output_dir)
+        free_gb = free // (2**30)
+        print(f"[INFO] Available disk space in '{output_dir}': {free_gb} GB")
+
+        if free_gb < min_required_gb:
+            print(f"[WARNING] Low disk space (<{min_required_gb}GB). Saving model to fallback directory: /tmp/llama_sft_output")
+            fallback_dir = "/tmp/llama_sft_output"
+            os.makedirs(fallback_dir, exist_ok=True)
+            output_dir = fallback_dir
+
+        try:
+            model.save_pretrained(output_dir, safe_serialization=False, max_shard_size="2GB")
+            print(f"[SUCCESS] Model saved to: {output_dir}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save model: {e}")
+
+    safe_model_save(model, output_dir)
+
+    # model.save_pretrained(output_dir, safe_serialization=False, max_shard_size="5GB")  
     
     return model
 
