@@ -6,7 +6,7 @@ import copy
 import random
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
-from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
+from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
 from metric_retrieval import RetrievalMetric
@@ -18,40 +18,42 @@ from loss import SimilarityLoss
 Fine-tunes LLaMA 3.1 8B using REINFORCE and a custom loss function as reward.
 
 Usage:
-python pipeline.py --data_file sampled_ads_200.json --rankings_file rankings.json --responses_file query_responses_original_200.json --ads_file classified_ads_200.json --output_dir finetuned_model --batch_size 1 --k 10
+python pipeline.py --data_file sampled_ads.json --rankings_file rankings.json --responses_file query_responses_original_200.json --ads_file classified_ads.json --output_dir finetuned_model --batch_size 1 --k 10
 '''
 
 class CustomRewardModel(torch.nn.Module):
-    def __init__(self, tokenizer, base_model, similarity_loss_fn):
+    def __init__(self, tokenizer, raw_ads, classified_ads, original_responses, similarity_loss_fn):
         super().__init__()
         self.tokenizer = tokenizer
-        self.base_model = base_model
+        self.raw_ads = raw_ads
+        self.classified_ads = classified_ads
+        self.original_responses = original_responses
         self.similarity_loss_fn = similarity_loss_fn
 
-    def forward(self, raw_ads, decoded_responses, top_k_docs, classified_ads, responses):
-        all_gen_ads = []
+    def forward(self, decoded_responses, top_k_docs, **kwargs):
+        # all_gen_ads = []
         
-        for ad in tqdm(raw_ads):
-            input_ids = self.tokenizer(ad['text'], return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+        # for ad in tqdm(self.raw_ads):
+        #     input_ids = self.tokenizer(ad['text'], return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
 
-            # Generate response from the model
-            gen_ids = self.base_model.generate(
-                input_ids,
-                max_new_tokens=50,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-            )
+        #     Generate response from the model
+        #     gen_ids = self.base_model.pretrained_model.generate(
+        #         input_ids,
+        #         max_new_tokens=50,
+        #         pad_token_id=self.tokenizer.pad_token_id,
+        #         eos_token_id=self.tokenizer.eos_token_id,
+        #     )
 
-            # Decode generated text
-            gen_text = self.tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
-            all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
+        #     # Decode generated text
+        #     gen_text = self.tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
+        #     all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
 
         total_losses = []
-        for original, rewritten in zip(raw_ads, decoded_responses):
+        for original, rewritten in zip(self.raw_ads, decoded_responses):
             relevant_queries = []  # Find relevant queries for the ad
-            for query, q_info in responses.items():
-                ad_domain = classified_ads.get(original['ad_id'], {}).get("domain")
-                ad_subdomain = classified_ads.get(original['ad_id'], {}).get("subdomain")
+            for query, q_info in self.original_responses.items():
+                ad_domain = self.classified_ads.get(original['ad_id'], {}).get("domain")
+                ad_subdomain = self.classified_ads.get(original['ad_id'], {}).get("subdomain")
                 if q_info.get("domain") == ad_domain and q_info.get("subdomain") == ad_subdomain:
                     relevant_queries.append(query)
 
@@ -73,8 +75,12 @@ class CustomRewardModel(torch.nn.Module):
         #     inclusions_after_dict=responses_after    # new
         # ).compute_inclusion_accuracy(ad["ad_id"])
         # print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
-
-        return -(sum(total_losses) / len(total_losses)) 
+        
+        # return -(sum(total_losses) / len(total_losses)) 
+        return total_losses
+        
+        def score(self, **kwargs):
+            return self.forward(**kwargs)
 
 def load_original_ads_by_id(json_path):
     with open(json_path, "r", encoding="utf-8") as f:
@@ -154,13 +160,17 @@ def load_classified_ads_from_json(path):
     return formatted_data
 
 def main(original_ads_file, rankings_file, query_responses_file, classified_ads_file, output_dir, batch_size, k):
-    model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    model = "sft_output"
     tokenizer = AutoTokenizer.from_pretrained(model, padding_side="left")
     tokenizer.pad_token = tokenizer.eos_token  # Set pad token to eos token
 
     # Load the base model for PPO
-    # base = AutoModelForCausalLM.from_pretrained(model, torch_dtype=torch.float16).cuda()
-    base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
+    #base = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda() 
+    base = AutoModelForCausalLMWithValueHead.from_pretrained(
+        model, 
+        torch_dtype=torch.float16, 
+        return_dict=True
+    ).cuda() 
 
     # Lora config setup
     lora_cfg = LoraConfig(r=32, lora_alpha=16, target_modules=["q_proj", "k_proj", "v_proj", "o_proj"])
@@ -169,9 +179,17 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     peft_model.config.return_dict = True
 
     # Create a reference model without LoRA modifications (used for PPO)
-    ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    #ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(model, torch_dtype=torch.float16).cuda()
+    ref_model = AutoModelForCausalLMWithValueHead.from_pretrained(
+        model, 
+        torch_dtype=torch.float16,
+        return_dict=True
+    ).cuda()
+    ref_model.pretrained_model.config.return_dict = True
     ref_model.config.return_dict = True
-    
+
+    # reward_model = RewardModel(peft_model)
+
     with open(original_ads_file, "r", encoding="utf-8") as f:
         raw_ads = json.load(f)
 
@@ -181,9 +199,9 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
     responses = load_query_responses_from_json(query_responses_file) # key is query
     classified_ads = load_classified_ads_from_json(classified_ads_file) # key is id
     top_k_docs = build_top_k_docs(rankings, original_ads) # key is query, mapped to list of ids
-
+    
     config = PPOConfig(
-        model_adapter_name=base,
+        model_adapter_name=peft_model,
         learning_rate=5e-6,
         batch_size=4,  
         mini_batch_size=1,
@@ -192,10 +210,8 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         output_dir="./ppo_output",
     )
     
-
     similarity_loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
-    reward_model = CustomRewardModel(tokenizer, base, similarity_loss_fn)
-
+    reward_model = CustomRewardModel(tokenizer, raw_ads, classified_ads, queries, similarity_loss_fn)
 
     train_dataset = []
     for ad in raw_ads:
@@ -210,19 +226,19 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             "input_ids":      torch.tensor(enc["input_ids"],      dtype=torch.long),
             "attention_mask": torch.tensor(enc["attention_mask"], dtype=torch.long),
         })
+        
 
     trainer = PPOTrainer(
         args=config,
         model=peft_model.pretrained_model,
-        ref_model=ref_model,
+        ref_model=ref_model.pretrained_model,
         processing_class=tokenizer,
         train_dataset=train_dataset,
         reward_model=reward_model, 
-        value_model=peft_model.pretrained_model,
+        value_model=peft_model.pretrained_model
     )
-
-    trainer.train()
     
+    trainer.train()
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
     print(f"Model fine-tuned and saved to {output_dir}")
