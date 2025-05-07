@@ -30,65 +30,71 @@ class DummyRewardModel(nn.Module):
         return torch.zeros(batch_size).to(hidden_states.device)
 
 class CustomPPOTrainer(PPOTrainer):
-    # def __init__(self, *args, reward_fn=None, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #     self.reward_fn = reward_fn
-
-    # def train(self):
-    #     for epoch in range(int(self.args.num_train_epochs)):
-    #         for batch in self.dataloader:
-    #             prompts = batch["input_ids"]
-    #             # Generate responses (you can customize sampling)
-    #             responses = self.model.value_model.generate(prompts)
-
-    #             # Convert to strings if needed
-    #             prompt_texts = self.tokenizer.batch_decode(prompts, skip_special_tokens=True)
-    #             response_texts = self.tokenizer.batch_decode(responses, skip_special_tokens=True)
-
-    #             # Rule-based rewards
-    #             # rewards = self.reward_fn(prompt_texts, response_texts)
-    #             rewards = [1]*200 #dummy reward for testing...
-                
-    #             # Run PPO step
-    #             self.step(prompts, responses, rewards)
-    def __init__(self, *args, raw_ads, classified_ads, original_responses, similarity_loss_fn, **kwargs):
+    def __init__(self, *args, reward_fn=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.raw_ads = raw_ads
-        self.classified_ads = classified_ads
-        self.original_responses = original_responses
-        self.similarity_loss_fn = similarity_loss_fn
+        self.reward_fn = reward_fn
 
-    def get_rewards(self, decoded_responses, top_k_docs, **kwargs):
-        total_losses = []
-        for original, rewritten in zip(self.raw_ads, decoded_responses):
-            relevant_queries = []  # Find relevant queries for the ad
-            for query, q_info in self.original_responses.items():
-                ad_domain = self.classified_ads.get(original['ad_id'], {}).get("domain")
-                ad_subdomain = self.classified_ads.get(original['ad_id'], {}).get("subdomain")
-                if q_info.get("domain") == ad_domain and q_info.get("subdomain") == ad_subdomain:
-                    relevant_queries.append(query)
+    def train(self):
+        for epoch in range(int(self.args.num_train_epochs)):
+            for batch in self.dataloader:
+                prompts = batch["input_ids"]
+                # Generate responses (you can customize sampling)
+                responses = self.model.value_model.generate(prompts)
 
-            # Calculate loss for relevant queries
-            losses = []
-            sample_size = min(len(relevant_queries), 8)
-            for query in random.sample(relevant_queries, sample_size):
-                docs_for_query = top_k_docs.get(query, [])
-                loss = self.similarity_loss_fn(query, original, rewritten, docs_for_query)
-                losses.append(loss)
-            total_losses.append(sum(losses) / len(losses))
+                # Convert to strings if needed
+                prompt_texts = self.tokenizer.batch_decode(prompts, skip_special_tokens=True)
+                response_texts = self.tokenizer.batch_decode(responses, skip_special_tokens=True)
+
+                # Rule-based rewards
+                # rewards = self.reward_fn(prompt_texts, response_texts)
+                rewards = [1]*200 #dummy reward for testing...
+                
+                # Run PPO step
+                # self.step(prompts, responses, rewards)
+                self.model.train()
+                stats = self.step(queries, responses, rewards)
+                self.tokenizer.padding_side = "left"  # restore padding side
+                loss_meter.update(float(stats["ppo/loss/total"]), n=len(rewards))
+                reward_meter.update(torch.stack(rewards).mean().item(), n=len(rewards))
+                
+    # def __init__(self, *args, raw_ads, classified_ads, original_responses, similarity_loss_fn, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #     self.raw_ads = raw_ads
+    #     self.classified_ads = classified_ads
+    #     self.original_responses = original_responses
+    #     self.similarity_loss_fn = similarity_loss_fn
+
+    # def get_rewards(self, decoded_responses, top_k_docs, **kwargs):
+    #     total_losses = []
+    #     for original, rewritten in zip(self.raw_ads, decoded_responses):
+    #         relevant_queries = []  # Find relevant queries for the ad
+    #         for query, q_info in self.original_responses.items():
+    #             ad_domain = self.classified_ads.get(original['ad_id'], {}).get("domain")
+    #             ad_subdomain = self.classified_ads.get(original['ad_id'], {}).get("subdomain")
+    #             if q_info.get("domain") == ad_domain and q_info.get("subdomain") == ad_subdomain:
+    #                 relevant_queries.append(query)
+
+    #         # Calculate loss for relevant queries
+    #         losses = []
+    #         sample_size = min(len(relevant_queries), 8)
+    #         for query in random.sample(relevant_queries, sample_size):
+    #             docs_for_query = top_k_docs.get(query, [])
+    #             loss = self.similarity_loss_fn(query, original, rewritten, docs_for_query)
+    #             losses.append(loss)
+    #         total_losses.append(sum(losses) / len(losses))
         
-        # delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
-        # delta_dir = InclusionAccuracyMetric(
-        #     k=10,
-        #     rankings_before_dict=rankings,
-        #     rankings_after_dict=rewritten_rankings,
-        #     inclusions_before_dict=responses,  # original
-        #     inclusions_after_dict=responses_after    # new
-        # ).compute_inclusion_accuracy(ad["ad_id"])
-        # print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
+    #     # delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
+    #     # delta_dir = InclusionAccuracyMetric(
+    #     #     k=10,
+    #     #     rankings_before_dict=rankings,
+    #     #     rankings_after_dict=rewritten_rankings,
+    #     #     inclusions_before_dict=responses,  # original
+    #     #     inclusions_after_dict=responses_after    # new
+    #     # ).compute_inclusion_accuracy(ad["ad_id"])
+    #     # print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
         
-        # return -(sum(total_losses) / len(total_losses)) 
-        return total_losses
+    #     # return -(sum(total_losses) / len(total_losses)) 
+    #     return total_losses
 
 def load_original_ads_by_id(json_path):
     with open(json_path, "r", encoding="utf-8") as f:
@@ -260,11 +266,11 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         train_dataset=train_dataset,
         reward_model=DummyRewardModel(), 
         value_model=peft_model.pretrained_model,
-        raw_ads=raw_ads,
-        classified_ads=classified_ads,
-        original_responses=responses,
-        similarity_loss_fn=similarity_loss_fn,
-        # reward_fn=compute_reward
+        # raw_ads=raw_ads,
+        # classified_ads=classified_ads,
+        # original_responses=responses,
+        # similarity_loss_fn=similarity_loss_fn,
+        reward_fn=compute_reward
     )
     
     trainer.train()
