@@ -34,6 +34,9 @@ class InclusionAccuracyMetric:
                     included_after += 1
 
         total = qualified_queries
+        if total==0:
+            return 0
+        
         freq_before = included_before / total
         freq_after = included_after / total
         improvement = freq_after - freq_before

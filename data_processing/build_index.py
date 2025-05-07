@@ -11,11 +11,9 @@ Usage:
     python data_processing/build_index.py --input_path /full/path/to/file --output_dir faiss_index
 """
 
-import argparse
 import json
 import os
-import uuid
-from typing import List, Dict, Any
+from typing import List
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
@@ -110,34 +108,51 @@ class IndexBuilder:
         self.build_index(documents)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Build a FAISS index from advertisements dataset."
-    )
-    parser.add_argument(
-        "--input_path",
-        type=str,
-        required=True,
-        help="Full path to the input JSON file containing the advertisements."
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="faiss_index",
-        help="Directory name for saving the FAISS index. Will be created in the same directory as the input file. Default is 'faiss_index'."
-    )
-    parser.add_argument(
-        "--chunk_size",
-        type=int,
-        default=1000,
-        help="Target chunk size in characters. Default is 1000."
-    )
-    parser.add_argument(
-        "--chunk_overlap",
-        type=int,
-        default=200,
-        help="Overlap between chunks in characters. Default is 200."
-    )
-    
-    args = parser.parse_args()
-    main(args.input_path, args.output_dir, args.chunk_size, args.chunk_overlap)
+        for doc in documents:
+            parent_metadata = doc.metadata.copy()
+            doc_id = parent_metadata['doc_id']
+            chunks = text_splitter.split_text(doc.page_content)
+
+            for i, chunk_text in enumerate(chunks):
+                chunk_doc = Document(
+                    page_content=chunk_text,
+                    metadata={
+                        **parent_metadata,
+                        'chunk_id': i,
+                        'chunk_count': len(chunks),
+                        'is_chunk': True,
+                        'parent_doc_id': doc_id
+                    }
+                )
+                chunked_docs.append(chunk_doc)
+
+        print(f"Split {len(documents)} documents into {len(chunked_docs)} chunks")
+        return chunked_docs
+
+    def build_index(self, documents: List[Document]):
+        """Build and save FAISS index from documents."""
+        chunked_docs = self.chunk_documents(documents)
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+        print(f"Building FAISS index from {len(chunked_docs)} document chunks...")
+        db = FAISS.from_documents(chunked_docs, embeddings)
+
+        full_output_dir = os.path.join(os.path.dirname(self.input_path), self.output_dir)
+        os.makedirs(full_output_dir, exist_ok=True)
+        db.save_local(full_output_dir)
+
+        print(f"Index successfully built and saved to {full_output_dir}")
+        return db
+
+    def run(self):
+        """Main method to run the indexing pipeline."""
+        if not os.path.exists(self.input_path):
+            raise FileNotFoundError(f"Input file not found: {self.input_path}")
+
+        print(f"Loading documents from {self.input_path}")
+        documents = self.load_documents()
+        print(f"Loaded {len(documents)} documents")
+        self.build_index(documents)
+
+indexer = IndexBuilder(input_path="data_processing/sampled_ads_200.json", output_dir="faiss_index")
+indexer.run()

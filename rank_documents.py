@@ -38,7 +38,7 @@ with open("queries_200.json", "r", encoding="utf-8") as f:
     queries = json.load(f)
 
 # Create a ranker
-ranker = DocumentRanker(index_dir="./ds/faiss_index/", top_k=10)
+ranker = DocumentRanker(index_dir="data_processing/faiss_index/", top_k=10)
 
 # Rank and save in one call
 ranker.rank_and_save(queries, "rankings.json")
