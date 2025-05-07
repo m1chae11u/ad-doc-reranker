@@ -1,8 +1,20 @@
 import json
 import google.generativeai as genai
+import os
 
 # Configure the Gemini model with the API key
-genai.configure(api_key="AIzaSyBo9tI8t-MckqNzfQBnf2UOfZKwLI-_0Zc")
+def load_api_key():
+    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "configs", "keys.json")
+    with open(config_path, 'r') as f:
+        return json.load(f)["google_api_key"]
+
+def initialize_gemini():
+    api_key = load_api_key()
+    genai.configure(api_key=api_key)
+    return genai.GenerativeModel("gemini-1.5-pro")
+
+# Initialize the model using the function
+model = initialize_gemini()
 
 # Load input from sampled_ads.json
 with open("sampled_ads.json", "r") as f:
@@ -15,9 +27,6 @@ def create_prompt(query, ad):
 Query: {query}
 Original Ad: {ad}
 Rewritten Ad:"""
-
-# Initialize the model
-model = genai.GenerativeModel("models/gemini-1.5-pro-latest")
 
 # Prepare a list to store rewritten ads
 rewritten = []
@@ -34,9 +43,9 @@ for item in data:
         print(f"Generated prompt: {prompt}")  # Check the prompt that is being generated
 
         try:
-            # genertae the rewritten ad
+            # Generate the rewritten ad
             response = model.generate_content(prompt)
-            print(f"Response: {response.text}")  # chk the response from the model
+            print(f"Response: {response.text}")  # Check the response from the model
 
             # Save the rewritten ad to the 'rewritten_ad' field
             item["rewritten_ad"] = response.text.strip()
