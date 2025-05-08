@@ -30,7 +30,7 @@ python pipeline.py --data_file sampled_ads.json --rankings_file rankings.json --
 #         batch_size = hidden_states.shape[0]
 #         return torch.zeros(batch_size).to(hidden_states.device)
 
-class CustomRewardModel(): 
+class CustomRewardModel(torch.nn.Module): 
     def __init__(self, *args, raw_ads, classified_ads, original_responses, similarity_loss_fn, **kwargs):
         super().__init__(*args, **kwargs)
         self.raw_ads = raw_ads
@@ -239,7 +239,7 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
         ref_model=ref_model.pretrained_model,
         processing_class=tokenizer,
         train_dataset=train_dataset,
-        reward_model=CustomRewardModel(raw_ads=raw_ads, classified_ads=classified_ads, original_responses=original_responses, similarity_loss_fn=similarity_loss_fn), 
+        reward_model=CustomRewardModel(raw_ads=raw_ads, classified_ads=classified_ads, original_responses=responses, similarity_loss_fn=similarity_loss_fn), 
         value_model=peft_model.pretrained_model,
         # raw_ads=raw_ads,
         # classified_ads=classified_ads,
