@@ -17,7 +17,7 @@ from typing import Dict, List, Union, Optional
 pip install -U bitsandbytes accelerate
 
 usage: 
-python sft.py --json_file faiss_index/sampled_ads_200.json --output_dir sft_output --batch_size 1 --epochs 3
+python sft.py --json_file faiss_index/sampled_ads_200.json --output_dir sft_output2 --batch_size 1 --epochs 3
 
 '''
 
@@ -124,7 +124,7 @@ def get_sft_dataset(
 
 def main(json_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
 
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    model_name = "meta-llama/Llama-3.2-3B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     
