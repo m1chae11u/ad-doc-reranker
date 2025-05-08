@@ -10,6 +10,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer, TextEnvironment
 from peft import LoraConfig, get_peft_model
 from datasets import load_dataset, Dataset
+from rank_documents import DocumentRanker
 from metric_retrieval import RetrievalMetric
 from metric_inclusion import InclusionAccuracyMetric
 from tqdm import tqdm
@@ -243,20 +244,49 @@ def main(original_ads_file, rankings_file, query_responses_file, classified_ads_
             total_losses.append(sum(losses)/len(losses))
         return -(sum(total_losses) / len(total_losses))
 
-    train_dataset = []
-    for ad in raw_ads:
-        enc = tokenizer(                       # keeps Python lists
-            ad["text"],
-            truncation=True,
-            max_length=512,
-            padding=False          # no padding yet
-        )
-        # convert to tensors & drop the implicit batch axis
-        train_dataset.append({
-            "input_ids":      torch.tensor(enc["input_ids"],      dtype=torch.long),
-            "attention_mask": torch.tensor(enc["attention_mask"], dtype=torch.long),
-        })
-        
+    trainer = PPOTrainer(args=config, model=base, ref_model=ref_model, processing_class=tokenizer, train_dataset=None, reward_model=None, value_model=None)
+    loss_fn = SimilarityLoss(alpha=1.0, beta=1.0, gamma=1.0)
+
+    for epoch in range(3):  # number of PPO passes
+        print(f"Epoch {epoch + 1}")
+        all_gen_ads = []
+        for ad in tqdm(raw_ads):
+            # Step 1: Tokenize input
+            input_ids = tokenizer(ad, return_tensors="pt", padding=True, truncation=True).input_ids.cuda()
+            
+            # Step 2: Generate response from the model
+            gen_ids = trainer.model.generate(
+                input_ids,
+                max_new_tokens=50,
+                pad_token_id=tokenizer.pad_token_id,
+                eos_token_id=tokenizer.eos_token_id,
+            )
+
+            # Step 3: Extract text response
+            gen_text = tokenizer.decode(gen_ids[0][input_ids.shape[-1]:], skip_special_tokens=True)
+            all_gen_ads.append({"ad_id": ad["ad_id"], "rewrite": gen_text})
+
+            
+
+            responses_after = 
+            rewritten_rankings = DocumentRanker(index_dir="./ds/faiss_index_rewritten/", top_k=10)
+            
+            delta_mrr = RetrievalMetric(ad["ad_id"], queries, rankings, rewritten_rankings).evaluate_doc(ad)
+            delta_dir = InclusionAccuracyMetric(
+                k=10,
+                rankings_before_dict=rankings,
+                rankings_after_dict=rewritten_rankings,
+                inclusions_before_dict=responses,  # original
+                inclusions_after_dict=responses_after    # new
+            ).compute_inclusion_accuracy(ad["ad_id"])
+            print(f"Epoch {epoch+1}: ΔMRR@10 {delta_mrr:.4f}, ΔDIR@10 {delta_dir:.2f}%")
+
+        # Step 4: Compute reward
+        rewards = torch.tensor( [compute_reward([orig], [gen]) for orig, gen in zip(raw_ads, all_gen_ads)]
+        ).to(model.device)
+
+        # Step 5: Pass into PPO step
+        trainer.step(input_ids, gen_ids, rewards)
 
     trainer = CustomPPOTrainer(
         args=config,

@@ -107,5 +107,52 @@ class IndexBuilder:
         print(f"Loaded {len(documents)} documents")
         self.build_index(documents)
 
+
+        for doc in documents:
+            parent_metadata = doc.metadata.copy()
+            doc_id = parent_metadata['doc_id']
+            chunks = text_splitter.split_text(doc.page_content)
+
+            for i, chunk_text in enumerate(chunks):
+                chunk_doc = Document(
+                    page_content=chunk_text,
+                    metadata={
+                        **parent_metadata,
+                        'chunk_id': i,
+                        'chunk_count': len(chunks),
+                        'is_chunk': True,
+                        'parent_doc_id': doc_id
+                    }
+                )
+                chunked_docs.append(chunk_doc)
+
+        print(f"Split {len(documents)} documents into {len(chunked_docs)} chunks")
+        return chunked_docs
+
+    def build_index(self, documents: List[Document]):
+        """Build and save FAISS index from documents."""
+        chunked_docs = self.chunk_documents(documents)
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+        print(f"Building FAISS index from {len(chunked_docs)} document chunks...")
+        db = FAISS.from_documents(chunked_docs, embeddings)
+
+        full_output_dir = os.path.join(os.path.dirname(self.input_path), self.output_dir)
+        os.makedirs(full_output_dir, exist_ok=True)
+        db.save_local(full_output_dir)
+
+        print(f"Index successfully built and saved to {full_output_dir}")
+        return db
+
+    def run(self):
+        """Main method to run the indexing pipeline."""
+        if not os.path.exists(self.input_path):
+            raise FileNotFoundError(f"Input file not found: {self.input_path}")
+
+        print(f"Loading documents from {self.input_path}")
+        documents = self.load_documents()
+        print(f"Loaded {len(documents)} documents")
+        self.build_index(documents)
+
 indexer = IndexBuilder(input_path="data_processing/sampled_ads_200.json", output_dir="faiss_index")
 indexer.run()
