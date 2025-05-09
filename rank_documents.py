@@ -33,12 +33,12 @@ class DocumentRanker:
             json.dump(rankings, f, indent=2)
         print(f"Saved rankings to {output_path}")
 
-# Load your queries
-with open("queries_200.json", "r", encoding="utf-8") as f:
-    queries = json.load(f)
+# # Load your queries
+# with open("queries_200.json", "r", encoding="utf-8") as f:
+#     queries = json.load(f)
 
-# Create a ranker
-ranker = DocumentRanker(index_dir="data_processing/faiss_index/", top_k=10)
+# # Create a ranker
+# ranker = DocumentRanker(index_dir="data_processing/faiss_index/", top_k=10)
 
-# Rank and save in one call
-ranker.rank_and_save(queries, "rankings.json")
+# # Rank and save in one call
+# ranker.rank_and_save(queries, "rankings.json")

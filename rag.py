@@ -77,12 +77,12 @@ Please provide a helpful, informative response directed to the user based on the
 
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
-generator = RAGGenerator()
+# generator = RAGGenerator()
 
-generator.batch_generate(
-    query_file="queries_200.json",
-    index_dir="faiss_index",
-    output_file="query_responses.json",
-    top_k=10,
-    use_full_docs=True
-)
+# generator.batch_generate(
+#     query_file="queries_200.json",
+#     index_dir="faiss_index",
+#     output_file="query_responses.json",
+#     top_k=10,
+#     use_full_docs=True
+# )

@@ -49,33 +49,33 @@ class RetrievalMetric:
 
         return sum(self.movements) / len(self.movements)
 
-# Step 1: Define document metadata
-target_doc = {
-    "doc1": ("tech", "ai")
-}
+# # Step 1: Define document metadata
+# target_doc = {
+#     "doc1": ("tech", "ai")
+# }
 
-# Step 2: Define related queries
-queries = [
-    {"query": "artificial intelligence tools", "domain": "tech", "subdomain": "ai"},
-    {"query": "machine learning platforms", "domain": "tech", "subdomain": "ai"},
-]
+# # Step 2: Define related queries
+# queries = [
+#     {"query": "artificial intelligence tools", "domain": "tech", "subdomain": "ai"},
+#     {"query": "machine learning platforms", "domain": "tech", "subdomain": "ai"},
+# ]
 
-# Step 3: Define original rankings for each query
-original_rankings = {
-    "artificial intelligence tools": ["doc3", "doc1", "doc2"],
-    "machine learning platforms": ["doc1", "doc2", "doc3"],
-}
+# # Step 3: Define original rankings for each query
+# original_rankings = {
+#     "artificial intelligence tools": ["doc3", "doc1", "doc2"],
+#     "machine learning platforms": ["doc1", "doc2", "doc3"],
+# }
 
-# Step 4: Define rewritten rankings (e.g., from AI-rewritten queries)
-rewritten_rankings = {
-    "artificial intelligence tools": ["doc1", "doc2", "doc3"],
-    "machine learning platforms": ["doc1", "doc2", "doc3"],
-}
+# # Step 4: Define rewritten rankings (e.g., from AI-rewritten queries)
+# rewritten_rankings = {
+#     "artificial intelligence tools": ["doc1", "doc2", "doc3"],
+#     "machine learning platforms": ["doc1", "doc2", "doc3"],
+# }
 
-# Step 5: Create and use the metric
-metric = RetrievalMetric(target_doc, queries, original_rankings, rewritten_rankings)
+# # Step 5: Create and use the metric
+# metric = RetrievalMetric(target_doc, queries, original_rankings, rewritten_rankings)
 
-# Evaluate all documents
-for doc_id in target_doc:
-    print (metric.evaluate_doc(doc_id))
+# # Evaluate all documents
+# for doc_id in target_doc:
+#     print (metric.evaluate_doc(doc_id))
 

@@ -5,7 +5,7 @@ import argparse
 from typing import List, Dict
 from metric_inclusion import InclusionAccuracyMetric
 from metric_retrieval import RetrievalMetric
-from build_index import IndexBuilder
+from data_processing.build_index import IndexBuilder
 from rank_documents import DocumentRanker
 from rag import RAGGenerator
 
@@ -20,12 +20,13 @@ def load_query_responses_from_json(path):
 
     return formatted_data
 
-with open("sampled_ads.json", 'r', encoding='utf-8') as f:
+with open("ds/faiss_index/200_sampled_ads.json", 'r', encoding='utf-8') as f:
     ads = json.load(f)
 
 # create faiss index
 indexer = IndexBuilder(input_path="prompt_output.json", output_dir="faiss_index_rewritten")
 indexer.run()
+print ("hi")
 
 # rank rewritten docs
 with open("queries.json", "r", encoding="utf-8") as f:
@@ -46,8 +47,8 @@ generator.batch_generate(
 # Evaluation: Inclusion Accuracy
 inclusion_metric = InclusionAccuracyMetric(
     k=10,
-    rankings_before_path='rankings_rewritten.json',
-    rankings_after_path='rankings_original.json',
+    rankings_before_path='rankings_original.json',
+    rankings_after_path='rankings_rewritten.json',
     inclusions_before_path='query_responses_original.json',
     inclusions_after_path='query_responses_rewritten.json'
 )

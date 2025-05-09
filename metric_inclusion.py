@@ -43,13 +43,13 @@ class InclusionAccuracyMetric:
 
         return round(improvement * 100, 2)
 
-metric = InclusionAccuracyMetric(
-    k=10,
-    rankings_before_path='rankings.json',
-    rankings_after_path='rankings.json',
-    inclusions_before_path='query_responses_original_200.json',
-    inclusions_after_path='query_responses_original_200.json'
-)
+# metric = InclusionAccuracyMetric(
+#     k=10,
+#     rankings_before_path='rankings.json',
+#     rankings_after_path='rankings.json',
+#     inclusions_before_path='query_responses_original_200.json',
+#     inclusions_after_path='query_responses_original_200.json'
+# )
 
-result = metric.compute_inclusion_accuracy("a767622a-e5f8-48f9-b026-e960bb488e96")
-print(result)
+# result = metric.compute_inclusion_accuracy("a767622a-e5f8-48f9-b026-e960bb488e96")
+# print(result)
