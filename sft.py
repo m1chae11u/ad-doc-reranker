@@ -17,7 +17,24 @@ from typing import Dict, List, Union, Optional
 pip install -U bitsandbytes accelerate
 
 usage: 
-python sft.py --json_file faiss_index/sampled_ads_200.json --output_dir sft_output2 --batch_size 1 --epochs 3
+
+python prompt_engineering.py \
+  --ads_file 200_sampled_ads.json \
+  --output_file prompt_output.json
+
+python create_sft_data.py \
+  --ads_file 200_sampled_ads.json \
+  --queries_file queries_200.json \
+  --rewritten_ads_file prompt_output.json \
+  --rankings_file rankings.json \
+  --classified_ads_file classified_ads_200.json \
+  --output_file sft_dataset.json
+
+python sft.py \
+  --json_file sft_dataset.json \
+  --output_dir sft_output \
+  --batch_size 1 \
+  --epochs 3
 
 '''
 
@@ -36,13 +53,15 @@ class AdDataset(Dataset):
         return len(self.data)
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        ad = self.data[idx]
-        original_document = ad['text'] if 'text' in ad else ""
+        item = self.data[idx]
+        original_document = item["original_ad"]
+        rewritten_document = item["rewritten_ad"]
+
+        prompt = f"Original document:\n{original_document}\n\nRewrite the document to improve retrieval for relevant queries:"
+        completion = f" {rewritten_document}{self.tokenizer.eos_token}"
         
-        prompt = f"Original document:\n{original_document}\n\nRewrite the document:"
-        completion = original_document
-        
-        full_text = f"{prompt} {completion}{self.tokenizer.eos_token}"
+        # Combine into a full prompt
+        full_text = prompt + completion
         
         # Tokenize the text
         encodings = self.tokenizer(
@@ -53,10 +72,20 @@ class AdDataset(Dataset):
             return_tensors="pt"
         )
         
+        # Create labels - set prompt tokens to -100 so they're ignored in loss calculation
+        labels = encodings["input_ids"].clone()
+        prompt_tokens = self.tokenizer(
+            prompt, 
+            return_tensors="pt",
+            add_special_tokens=False
+        )["input_ids"].shape[1]
+        
+        labels[0, :prompt_tokens] = -100
+        
         return {
             "input_ids": encodings["input_ids"][0],
             "attention_mask": encodings["attention_mask"][0],
-            "labels": encodings["input_ids"][0].clone() 
+            "labels": labels[0]
         }
 
 def train_sft_model(
@@ -78,7 +107,7 @@ def train_sft_model(
         model_name,
         device_map="auto",
         torch_dtype=torch.bfloat16)
-    model.gradient_checkpointing_enable()
+    model.gradient_checkpointing_disable()
     
     training_args = TrainingArguments(
         output_dir=output_dir,
