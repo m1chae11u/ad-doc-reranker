@@ -25,23 +25,23 @@ with open("ds/faiss_index/200_sampled_ads.json", 'r', encoding='utf-8') as f:
 with open("queries_200.json", "r", encoding="utf-8") as f:
     queries = json.load(f)
 
-# # create faiss index
-# indexer = IndexBuilder(input_path="aprompt_output.json", output_dir="faiss_index_rewritten")
-# indexer.run()
+# create faiss index
+indexer = IndexBuilder(input_path="aprompt_output.json", output_dir="faiss_index_rewritten")
+indexer.run()
 
-# # rank rewritten docs
-# ranker = DocumentRanker(index_dir="faiss_index_rewritten", top_k=10)
-# ranker.rank_and_save(queries, "rankings_rewritten.json")
+# rank rewritten docs
+ranker = DocumentRanker(index_dir="faiss_index_rewritten", top_k=10)
+ranker.rank_and_save(queries, "rankings_rewritten.json")
 
-# # generate rewritten responses 
-# generator = RAGGenerator()
-# generator.batch_generate(
-#     query_file="queries_200.json",
-#     index_dir="faiss_index_rewritten",
-#     output_file="query_responses_rewritten.json",
-#     top_k=10,
-#     use_full_docs=True
-# )
+# generate rewritten responses 
+generator = RAGGenerator()
+generator.batch_generate(
+    query_file="queries_200.json",
+    index_dir="faiss_index_rewritten",
+    output_file="query_responses_rewritten.json",
+    top_k=10,
+    use_full_docs=True
+)
 
 # Evaluation: Inclusion Accuracy
 inclusion_metric = InclusionAccuracyMetric(
