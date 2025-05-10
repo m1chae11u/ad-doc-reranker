@@ -2,6 +2,7 @@ import json
 import google.generativeai as genai
 import os
 import argparse
+import re
 from typing import List, Dict
 
 """
@@ -35,14 +36,30 @@ def rewrite_ads(ads: List[Dict], model) -> List[Dict]:
     rewritten = []
 
     for a in ads:
-        ad = "; ".join(f"{k}:{v}" for k,v in a.items())
+        ad = f"Title: {a.get('title', '')}\n\nDescription: {a.get('text', '')}"
         prompt = create_prompt(ad)
         print(f"Generated prompt: {prompt}")
 
         response = model.generate_content(prompt)
-        print(f"Response: {response.text}")
+        # print(f"{response.text}")
+        
+        title_match = re.search(r'Title:\s*(.*)', response.text)
+        description_match = re.search(r'Description:\s*(.*)', response.text, re.DOTALL)
 
-        rewritten.append(response.text.strip())
+        title = title_match.group(1).strip() if title_match else ""
+        description = description_match.group(1).strip() if description_match else ""
+
+        rewritten.append({
+            "user_query": a['user_query'],
+            "title": title,
+            "text": description,
+            "url": a['url'],
+            "seller": a['seller'],
+            "brand": a['brand'],
+            "source": a['source'],
+            "ad_id": a['ad_id']
+        })
+        print(f"title: {title} \n\ndescription: {description}")
 
     return rewritten
 
@@ -59,8 +76,6 @@ def main(ads_file: str, output_file: str):
         json.dump(rewritten, f, ensure_ascii=False, indent=2)
 
     print(f"Rewritten ads saved to {output_file}")
-    
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Rewrite ads to improve general quality using prompt engineering.")

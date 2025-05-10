@@ -26,7 +26,7 @@ class RetrievalMetric:
 
     def evaluate_doc(self, doc_id):
         doc_domain = self.target_doc[doc_id]
-        relevant_queries = self.queries_by_domain.get(doc_domain, [])
+        relevant_queries = self.queries_by_domain.get(doc_domain)
 
         for query in relevant_queries:
             orig_ranked = self.original_rankings.get(query, [])
@@ -34,6 +34,7 @@ class RetrievalMetric:
 
             orig_rank = self.find_rank(doc_id, orig_ranked)
             rewrite_rank = self.find_rank(doc_id, rewritten_ranked)
+            # print (orig_rank, rewrite_rank)
 
             if orig_rank == -1:
                 delta = self.reciprocal_rank(rewrite_rank) - 0
