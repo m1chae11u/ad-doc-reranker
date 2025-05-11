@@ -50,7 +50,7 @@ class MetricEvaluator:
 
     def rank_documents(self, output_file: str):
         queries = self.load_json(self.queries_path)
-        ranker = DocumentRanker(index_dir=self.index_output_dir, top_k=self.k)
+        ranker = DocumentRanker(index_dir=self.index_output_dir, top_k=self.k, original_file=self.index_input_path)
         ranker.rank_and_save(queries, output_file)
 
     def generate_responses(self):
@@ -60,7 +60,8 @@ class MetricEvaluator:
             index_dir=self.index_output_dir,
             output_file=self.rewritten_responses_path,
             top_k=self.k,
-            use_full_docs=True
+            use_full_docs=True,
+            original_file=self.original_ads_path
         )
 
     def evaluate_inclusion_accuracy(self, ads: List[Dict]):
@@ -126,14 +127,14 @@ class MetricEvaluator:
 # Example usage:
 if __name__ == "__main__":
     evaluator = MetricEvaluator(
-        original_ads_path="ds/faiss_index/200_sampled_ads.json",
+        original_ads_path="ds/200_sampled_ads.json",
         queries_path="queries_200.json",
-        index_input_path="aprompt_output.json",
+        index_input_path="sft_rewritten_ads.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
         original_responses_path="query_responses_original_200.json",
         rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="classified_ads_200.json"
+        classified_ads_path="200_classified_ads.json"
     )
     evaluator.run()

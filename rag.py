@@ -43,13 +43,13 @@ Please provide a helpful, informative response directed to the user based on the
 
         return response_text, ids
 
-    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True):
+    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None):
         # Load queries
         with open(query_file, 'r', encoding='utf-8') as f:
             queries = json.load(f)
 
-        # Init retriever
-        retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k)
+        # Init retriever with optional original file
+        retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k, original_file=original_file)
 
         responses = []
 
@@ -77,12 +77,14 @@ Please provide a helpful, informative response directed to the user based on the
 
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
-# generator = RAGGenerator()
+# if __name__== "__main__":
+#     generator = RAGGenerator()
 
-# generator.batch_generate(
-#     query_file="queries_200.json",
-#     index_dir="faiss_index",
-#     output_file="query_responses.json",
-#     top_k=10,
-#     use_full_docs=True
-# )
+#     generator.batch_generate(
+#         query_file="queries_200.json",
+#         index_dir="ds/faiss_index",
+#         output_file="query_responses.json",
+#         top_k=10,
+#         use_full_docs=True,
+#         original_file="200_sampled_ads.json"
+#     )

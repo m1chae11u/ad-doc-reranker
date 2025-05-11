@@ -12,7 +12,7 @@ from metric_calculations import MetricEvaluator
 prompt engineering baseline
 
 To run:
-python using_sft_model.py --ads_file ds/faiss_index/200_sampled_ads.json --output_file prompt_output.json
+python using_sft_model.py --ads_file ds/faiss_index/200_sampled_ads.json --output_file sft_rewritten_ads.json
 """
 
 def create_prompt(ad: str) -> str:
