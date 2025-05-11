@@ -39,23 +39,29 @@ python sft.py \
 '''
 
 class AdDataset(Dataset):
-    def __init__(self, 
-                 json_file: str, 
-                 tokenizer,
-                 max_length: int = 512):
-        with open(json_file, 'r') as file:
-            self.data = json.load(file)
-        
+    def __init__(
+        self, 
+        original_file: str, 
+        rewritten_file: str, 
+        tokenizer,
+        max_length: int = 512
+    ):
+        # Load original and rewritten data from separate files
+        with open(original_file, 'r') as f:
+            self.original_data = json.load(f)
+
+        with open(rewritten_file, 'r') as f:
+            self.rewritten_data = json.load(f)
+
         self.tokenizer = tokenizer
         self.max_length = max_length
         
     def __len__(self) -> int:
-        return len(self.data)
+        return len(self.original_data)
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        item = self.data[idx]
-        original_document = item["original_ad"]
-        rewritten_document = item["rewritten_ad"]
+        original_document = self.original_data[idx]["text"]
+        rewritten_document = self.rewritten_data[idx]["text"]
 
         prompt = f"Original document:\n{original_document}\n\nRewrite the document to improve retrieval for relevant queries:"
         completion = f" {rewritten_document}{self.tokenizer.eos_token}"
@@ -145,19 +151,20 @@ def train_sft_model(
     return model
 
 def get_sft_dataset(
-    json_file: str, 
+    original_file: str, 
+    rewritten_file: str, 
     tokenizer, 
     max_length: int = 512
 ) -> AdDataset:
-    return AdDataset(json_file, tokenizer, max_length)
+    return AdDataset(original_file, rewritten_file, tokenizer, max_length)
 
-def main(json_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
+def main(original_file: str, rewritten_file: str,  output_dir: str, batch_size: int, epochs: int) -> None:
 
     model_name = "meta-llama/Llama-3.2-3B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     
-    dataset = get_sft_dataset(json_file, tokenizer)
+    dataset = get_sft_dataset(original_file, rewritten_file, tokenizer)
     
     train_dataloader = DataLoader(
         dataset, 
@@ -179,11 +186,12 @@ def main(json_file: str, output_dir: str, batch_size: int, epochs: int) -> None:
 if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Fine-tune a language model on self-supervised task using ad data.")
-    parser.add_argument("--json_file", type=str, required=True, help="Path to JSON file containing ad data.")
+    parser.add_argument("--original_file", type=str, required=True, help="Path to JSON file containing original ads.")
+    parser.add_argument("--rewritten_file", type=str, required=True, help="Path to JSON file containing rewritten ads.")
     parser.add_argument("--output_dir", type=str, required=True, help="Directory to save the model and tokenizer.")
     parser.add_argument("--batch_size", type=int, default=8, help="Batch size for DataLoader.")
     parser.add_argument("--epochs", type=int, default=3, help="Number of epochs for fine-tuning.")
     
     args = parser.parse_args()
     
-    main(args.json_file, args.output_dir, args.batch_size, args.epochs)
+    main(args.original_file, args.rewritten_file, args.output_dir, args.batch_size, args.epochs)
