@@ -61,7 +61,7 @@ def main(ads_file: str, output_file: str):
     with open(ads_file, 'r', encoding='utf-8') as f:
         ads = json.load(f)
 
-    model_dir = "sft_output"  # or whatever directory you used in --output_dir
+    model_dir = "sft_output" 
     model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", torch_dtype=torch.bfloat16)
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     tokenizer.pad_token = tokenizer.eos_token
