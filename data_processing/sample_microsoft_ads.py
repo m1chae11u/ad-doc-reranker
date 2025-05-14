@@ -5,7 +5,7 @@ This script samples a subset of the Microsoft CommercialAdsDataset to create a s
 testing and development purposes.
 
 Usage:
-    python data_processing/sample_microsoft_ads.py --input_file /full/path/to/commercial_ads.json --output_file /full/path/to/sampled_ads.json --sample_size 1000
+python data_processing/sample_microsoft_ads.py --input_file /full/path/to/commercial_ads.json --output_file /full/path/to/sampled_ads.json --sample_size 1000
 """
 
 import argparse
