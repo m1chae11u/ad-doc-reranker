@@ -9,7 +9,7 @@ class RAGGenerator:
     def __init__(self):
         self.api_key = self.load_api_key()
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = genai.GenerativeModel('gemini-1.5-pro')
 
     @staticmethod
     def load_api_key():
