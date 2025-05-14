@@ -160,7 +160,7 @@ def get_sft_dataset(
 
 def main(original_file: str, rewritten_file: str,  output_dir: str, batch_size: int, epochs: int) -> None:
 
-    model_name = "meta-llama/Llama-3.2-3B-Instruct"
+    model_name = "meta-llama/Llama-3.1-8B-Instruct"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
     
