@@ -8,7 +8,7 @@ This script handles the data preparation and indexing process. It performs the f
 4. Saves the FAISS index and associated document metadata to disk
 
 Usage:
-    python data_processing/build_index.py --input_path /full/path/to/file --output_dir faiss_index
+python data_processing/build_index.py --input_path /full/path/to/file --output_dir faiss_index
 """
 
 import json
