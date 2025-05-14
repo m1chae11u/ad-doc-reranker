@@ -39,7 +39,7 @@ def classify_ad_to_domain_and_subdomain(ad: Dict, known_domains: List[str], know
 You are classifying product advertisements into specific domains and very specific subdomains.
 For example:
 - Domain (e.g., 'Fashion', 'Electronics', 'Healthcare')
-- Subdomain (a very specific category within the domain, e.g., 'Men’s Shoes', 'Smartphones', 'Skincare')
+- Subdomain (a **very** specific category within the domain that is **different** from the domain, e.g., 'Men’s Shoes', 'Smartphones', 'Skincare')
 
 Domains so far:
 {domain_list}
@@ -55,7 +55,7 @@ Brand: {ad.get("brand", "")}
 
 Your task:
 1. Classify this ad into one of the existing domains and subdomains listed above, if appropriate.
-2. If it does not fit any existing domain or subdomain, propose a new one.
+2. If it does not fit into any existing domain or subdomain, propose a new one.
 3. Respond **only** in the format: `Domain: <domain name> Subdomain: <subdomain name>`
 """
     response = model.generate_content(prompt)
@@ -79,7 +79,7 @@ Generate realistic user LLM chat related to the subdomain: "{subdomain}" under t
 
 Generate {num_queries} unique, natural-sounding chats a user might say to a LLM.
 
-Respond with a numbered list.
+Respond **only** with a numbered list.
 """
     response = model.generate_content(prompt)
     raw_output = response.text.strip()
