@@ -104,6 +104,7 @@ def process_ads(input_file: str, output_file: str, classified_output_file: str, 
     known_domains = []
     known_subdomains = defaultdict(set)
     classified_ads = []
+    domain_subdomain_counts = defaultdict(lambda: defaultdict(int))
 
     # Step 1: Classify ads by domain and subdomain
     for i, ad in enumerate(ads):
@@ -115,6 +116,8 @@ def process_ads(input_file: str, output_file: str, classified_output_file: str, 
             known_subdomains[domain].add(subdomain)
 
         domain_to_subdomains[domain][subdomain].append(ad)
+        domain_subdomain_counts[domain][subdomain] += 1
+        
         classified_ads.append({
             "id": ad["ad_id"],
             "domain": domain,
@@ -143,6 +146,10 @@ def process_ads(input_file: str, output_file: str, classified_output_file: str, 
     with open(classified_output_file, 'w', encoding='utf-8') as f:
         json.dump(classified_ads, f, ensure_ascii=False, indent=2)
 
+    print("\nNumber of ads per domain-subdomain pair:")
+    for domain, sub_map in domain_to_subdomains.items():
+        for subdomain, ads_list in sub_map.items():
+            print(f"- {domain} / {subdomain}: {len(ads_list)} ads")
     print(f"\nSaved {len(query_dataset)} queries across {len(known_domains)} domains to {output_file}")
     print(f"Saved domain/subdomain classification for {len(classified_ads)} ads to {classified_output_file}")
 
