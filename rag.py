@@ -6,10 +6,11 @@ from retriever import AdSiteRetriever
 from tqdm import tqdm
 
 class RAGGenerator:
-    def __init__(self):
+    def __init__(self, retriever=None):
         self.api_key = self.load_api_key()
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel('gemini-1.5-pro')
+        self.retriever = retriever  # optional shared retriever
 
     @staticmethod
     def load_api_key():
@@ -31,7 +32,7 @@ RETRIEVED COMMERCIAL ADS:
 Please provide a helpful, informative response directed to the user based on the above information.
 """
         llm_output = self.model.generate_content(prompt).text
-        print(llm_output)
+        # print(llm_output)
         ids = re.findall(r'id:\s*([^\s,]+)', llm_output, re.IGNORECASE)
 
         # Remove the last line if it contains IDs
@@ -43,33 +44,42 @@ Please provide a helpful, informative response directed to the user based on the
 
         return response_text, ids
 
+    def generate_single(self, item: dict, top_k: int = 3, use_full_docs: bool = True):
+        """
+        Generate a single response for a given query item using a shared retriever.
+        """
+        if not self.retriever:
+            raise ValueError("Retriever not initialized. Pass it when constructing RAGGenerator.")
+
+        query = item["query"]
+        domain = item.get("domain", "Unknown")
+        subdomain = item.get("subdomain", "Unknown")
+
+        context = self.retriever.get_relevant_context(query, use_full_docs=use_full_docs)
+        response, docs_in_response = self.generate_response(query, context)
+
+        return {
+            "query": query,
+            "domain": domain,
+            "subdomain": subdomain,
+            "retrieved_context": context,
+            "response": response,
+            "documents_in_response": docs_in_response
+        }
+
     def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None):
         # Load queries
         with open(query_file, 'r', encoding='utf-8') as f:
             queries = json.load(f)
 
-        # Init retriever with optional original file
-        retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k, original_file=original_file)
+        # Init retriever only once, on main thread
+        self.retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k, original_file=original_file)
 
         responses = []
 
         for item in tqdm(queries, desc="Processing queries"):
-            query = item["query"]
-            domain = item.get("domain", "Unknown")
-            subdomain = item.get("subdomain", "Unknown")
-
-            # Retrieve context and generate response
-            context = retriever.get_relevant_context(query, use_full_docs=use_full_docs)
-            response, docs_in_response = self.generate_response(query, context)
-
-            responses.append({
-                "query": query,
-                "domain": domain,
-                "subdomain": subdomain,
-                "retrieved_context": context,
-                "response": response,
-                "documents_in_response": docs_in_response
-            })
+            result = self.generate_single(item, top_k=top_k, use_full_docs=use_full_docs)
+            responses.append(result)
 
         # Save to output file
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -77,14 +87,14 @@ Please provide a helpful, informative response directed to the user based on the
 
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
-if __name__== "__main__":
+if __name__ == "__main__":
     generator = RAGGenerator()
-
+    
     generator.batch_generate(
-        query_file="test_queries.json",
-        index_dir="ds/faiss_index_test",
-        output_file="query_responses_original.json",
+        query_file="10_queries.json",
+        index_dir="ds/10_faiss_index",
+        output_file="10_query_responses_original.json",
         top_k=10,
         use_full_docs=True,
-        original_file="ds/test_data.json"
+        original_file="ds/10_sampled_ads.json"
     )
