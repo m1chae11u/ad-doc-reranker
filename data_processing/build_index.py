@@ -155,6 +155,9 @@ class IndexBuilder:
         self.build_index(documents)
 
 if __name__ == "__main__":
+    # indexer = IndexBuilder(input_path="ds/10_sampled_ads.json", output_dir="10_faiss_index")
+    # indexer.run()
+    
     indexer = IndexBuilder(input_path="ds/test_data.json", output_dir="faiss_index_test")
     indexer.run()
 

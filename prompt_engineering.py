@@ -23,14 +23,11 @@ def initialize_gemini():
     return genai.GenerativeModel("gemini-1.5-pro")
 
 def create_prompt(ad: str) -> str:
-    return f"""You are given an advertisement. Please rewrite it so that it is more likely to rank higher when retrieved by a search system for queries relevant to its content.
+    return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM response improves. Focus on semantic relevance and matching the user’s likely search intent. 
 
-Make sure not to add any new information or make assumptions that are not already present in the original ad. 
+Original Ad: {ad}
 
-Original Ad:
-{ad}
-
-Rewritten Ad:"""
+Think step by step, then provide only the improved version. """
 
 def rewrite_ads(ads: List[Dict], model) -> List[Dict]:
     rewritten = []

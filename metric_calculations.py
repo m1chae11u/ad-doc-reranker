@@ -127,14 +127,14 @@ class MetricEvaluator:
 # Example usage:
 if __name__ == "__main__":
     evaluator = MetricEvaluator(
-        original_ads_path="ds/200_sampled_ads.json",
-        queries_path="queries_200.json",
-        index_input_path="sft_rewritten_ads.json",
+        original_ads_path="ds/test_data.json",
+        queries_path="test_queries.json",
+        index_input_path="test_prompt_output.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
         original_responses_path="query_responses_original_200.json",
         rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="200_classified_ads.json"
+        classified_ads_path="test_classified_ads.json"
     )
     evaluator.run()

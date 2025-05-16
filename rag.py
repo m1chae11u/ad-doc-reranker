@@ -77,14 +77,14 @@ Please provide a helpful, informative response directed to the user based on the
 
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
-# if __name__== "__main__":
-#     generator = RAGGenerator()
+if __name__== "__main__":
+    generator = RAGGenerator()
 
-#     generator.batch_generate(
-#         query_file="queries_200.json",
-#         index_dir="ds/faiss_index",
-#         output_file="query_responses.json",
-#         top_k=10,
-#         use_full_docs=True,
-#         original_file="200_sampled_ads.json"
-#     )
+    generator.batch_generate(
+        query_file="test_queries.json",
+        index_dir="ds/faiss_index_test",
+        output_file="query_responses_original.json",
+        top_k=10,
+        use_full_docs=True,
+        original_file="ds/test_data.json"
+    )
