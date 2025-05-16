@@ -9,7 +9,7 @@ from typing import List, Dict
 prompt engineering baseline
 
 To run:
-python prompt_engineering.py --ads_file ds/faiss_index/200_sampled_ads.json --output_file prompt_output.json
+python prompt_engineering.py --ads_file ds/test_data.json --output_file test_prompt_output.json
 """
 
 def load_api_key() -> str:
@@ -27,7 +27,9 @@ def create_prompt(ad: str) -> str:
 
 Original Ad: {ad}
 
-Think step by step, then provide only the improved version. """
+Think step by step first, then provide the improved version.  
+
+Respond with the improved version at the end of your response after your reasoning in the form: Title: ... Description: ..."""
 
 def rewrite_ads(ads: List[Dict], model) -> List[Dict]:
     rewritten = []
@@ -40,11 +42,11 @@ def rewrite_ads(ads: List[Dict], model) -> List[Dict]:
         response = model.generate_content(prompt)
         # print(f"{response.text}")
         
-        title_match = re.search(r'Title:\s*(.*)', response.text)
-        description_match = re.search(r'Description:\s*(.*)', response.text, re.DOTALL)
+        title_match = re.findall(r'Title:\s*(.*)', response.text)
+        description_match = re.findall(r'Description:\s*(.*)', response.text)
 
-        title = title_match.group(1).strip() if title_match else ""
-        description = description_match.group(1).strip() if description_match else ""
+        title = title_match[-1] if title_match else ""
+        description = description_match[-1] if description_match else ""
 
         rewritten.append({
             "user_query": a['user_query'],
