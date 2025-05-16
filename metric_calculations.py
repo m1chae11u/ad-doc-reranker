@@ -108,14 +108,14 @@ class MetricEvaluator:
         ads = self.load_json(self.original_ads_path)
         queries = self.load_json(self.queries_path)
 
-        print("Building index...")
-        self.build_index()
+        # print("Building index...")
+        # self.build_index()
 
-        print("Ranking documents...")
-        self.rank_documents(self.rewritten_rankings_path)
+        # print("Ranking documents...")
+        # self.rank_documents(self.rewritten_rankings_path)
 
-        print("Generating responses...")
-        self.generate_responses()
+        # print("Generating responses...")
+        # self.generate_responses()
 
         print("Evaluating Inclusion Accuracy...")
         self.evaluate_inclusion_accuracy(ads)
@@ -129,11 +129,11 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="test_prompt_output.json",
+        index_input_path="prompt_output.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="query_responses_original_200.json",
+        original_responses_path="query_responses_original.json",
         rewritten_responses_path="query_responses_rewritten.json",
         classified_ads_path="test_classified_ads.json"
     )

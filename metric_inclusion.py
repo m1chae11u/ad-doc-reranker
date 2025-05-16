@@ -9,7 +9,7 @@ class InclusionAccuracyMetric:
         self.inclusions_after = self._load_json(inclusions_after_path)
 
     def _load_json(self, path):
-        with open(path, 'r') as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
 
     def compute_inclusion_accuracy(self, target_doc_id):
