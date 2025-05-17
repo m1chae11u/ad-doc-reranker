@@ -14,6 +14,7 @@ Prompt engineering with multiple strategies, executed in parallel.
 To run:
 python prompt_engineering.py --ads_file ds/10_sampled_ads.json --output_file 10_prompt_output.json
 python prompt_engineering.py --ads_file ds/test_data.json --output_file test_prompt_output.json
+python prompt_engineering.py --ads_file ds/train_data.json --output_file train_rewritten_ads.json
 """
 
 def load_api_key() -> str:
@@ -31,9 +32,7 @@ def create_prompt(ad: str) -> Dict[str, str]:
 
 Original Ad: {ad}
 
-Think step by step first, then provide the improved version.
-
-Respond with the improved version at the end of your response after your reasoning in the form:
+Respond with the improved version:
 Title: ... 
 Description: ...
 """ 
