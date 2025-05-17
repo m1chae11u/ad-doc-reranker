@@ -22,14 +22,6 @@ python prompt_engineering.py \
   --ads_file 200_sampled_ads.json \
   --output_file prompt_output.json
 
-python create_sft_data.py \
-  --ads_file 200_sampled_ads.json \
-  --queries_file queries_200.json \
-  --rewritten_ads_file prompt_output.json \
-  --rankings_file rankings.json \
-  --classified_ads_file classified_ads_200.json \
-  --output_file sft_dataset.json
-
 python sft.py \
   --json_file sft_dataset.json \
   --output_dir sft_output \
