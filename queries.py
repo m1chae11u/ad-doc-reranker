@@ -12,6 +12,8 @@ import json
 import os
 import argparse
 import asyncio
+import math
+import time
 import google.generativeai as genai
 from collections import defaultdict
 from typing import List, Dict, Tuple
@@ -113,8 +115,18 @@ async def process_ads_async(input_file: str, output_file: str, classified_output
         print(f"[{i + 1}/{len(ads)}] Ad classified → Domain: {domain}, Subdomain: {subdomain}")
         return result
 
-    classify_tasks = [classify_with_index(i, ad) for i, ad in enumerate(ads)]
-    classified_results = await asyncio.gather(*classify_tasks)
+    MAX_REQS_PER_SECOND = 15
+    BATCH_SIZE = 12  # Stay a bit under the limit
+    DELAY = 1.0      # Seconds
+
+    classified_results = []
+    for batch_start in range(0, len(ads), BATCH_SIZE):
+        batch = ads[batch_start: batch_start + BATCH_SIZE]
+        batch_tasks = [classify_with_index(i + batch_start, ad) for i, ad in enumerate(batch)]
+        results = await asyncio.gather(*batch_tasks)
+        classified_results.extend(results)
+        if batch_start + BATCH_SIZE < len(ads):
+            await asyncio.sleep(DELAY)  
 
     for ad_id, domain, subdomain in classified_results:
         if domain not in known_domains:
