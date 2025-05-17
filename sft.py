@@ -10,6 +10,8 @@ from transformers import (
     TrainingArguments,
     DataCollatorForLanguageModeling
 )
+from peft import get_peft_model, LoraConfig, TaskType
+import bitsandbytes as bnb  
 import argparse
 from typing import Dict, List, Union, Optional
 
@@ -23,10 +25,11 @@ python prompt_engineering.py \
   --output_file prompt_output.json
 
 python sft.py \
-  --json_file sft_dataset.json \
+  --original_file train_data.json \
+  --rewritten_file train_rewritten_ads.json \
   --output_dir sft_output \
   --batch_size 1 \
-  --epochs 3
+  --epochs 1
 
 '''
 
