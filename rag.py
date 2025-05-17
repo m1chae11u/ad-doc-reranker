@@ -5,6 +5,9 @@ import google.generativeai as genai
 from retriever import AdSiteRetriever
 from tqdm import tqdm
 
+'''
+retrieves top k ads and gives them to LLM which generates responses to query
+'''
 class RAGGenerator:
     def __init__(self, retriever=None):
         self.api_key = self.load_api_key()
