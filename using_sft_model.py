@@ -4,6 +4,7 @@ import os
 import argparse
 import re
 import torch
+from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import List, Dict
 from metric_calculations import MetricEvaluator
@@ -62,7 +63,12 @@ def main(ads_file: str, output_file: str):
         ads = json.load(f)
 
     model_dir = "sft_output" 
-    model = AutoModelForCausalLM.from_pretrained(model_dir, device_map="auto", torch_dtype=torch.bfloat16)
+    base = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-3.1-8B-Instruct",
+        device_map="auto",
+        torch_dtype=torch.bfloat16
+    )
+    model = PeftModel.from_pretrained(base, model_dir)
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     tokenizer.pad_token = tokenizer.eos_token
     rewritten = rewrite_ads(ads, model)
