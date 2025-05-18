@@ -8,7 +8,8 @@ from transformers import (
     AutoModelForCausalLM,
     Trainer, 
     TrainingArguments,
-    DataCollatorForLanguageModeling
+    DataCollatorForLanguageModeling,
+    BitsAndBytesConfig
 )
 from peft import get_peft_model, LoraConfig, TaskType
 import bitsandbytes as bnb  
@@ -104,11 +105,22 @@ def train_sft_model(
 ) -> AutoModelForCausalLM:
     
     # Load the pre-trained model
+    # base_model = AutoModelForCausalLM.from_pretrained(
+    #     model_name,
+    #     device_map="auto",
+    #     load_in_8bit=True,
+    #     torch_dtype=torch.float16
+    # )
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+    )
+    
     base_model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        device_map="auto",
-        load_in_8bit=True,
-        torch_dtype=torch.float16
+        quantization_config=bnb_config,
+        device_map="auto"
     )
 
     # Define LoRA config
@@ -134,11 +146,11 @@ def train_sft_model(
         learning_rate=learning_rate,
         weight_decay=weight_decay,
         warmup_steps=warmup_steps,
-        bf16=True,
+        fp16=True,
         save_strategy="epoch",
         save_safetensors=True,
         optim="paged_adamw_8bit",
-        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_accumulation_steps=8,
         overwrite_output_dir=True,
         label_names=["labels"],  # <-- Add this line
     )
