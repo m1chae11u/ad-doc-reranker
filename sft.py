@@ -142,6 +142,8 @@ def train_sft_model(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=train_dataloader.batch_size,
+        logging_dir=os.path.join(output_dir, "logs"),  
+        logging_strategy="steps",
         logging_steps=logging_steps,
         learning_rate=learning_rate,
         weight_decay=weight_decay,
