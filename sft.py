@@ -1,219 +1,115 @@
-import os
-import torch
-from torch.utils.data import Dataset, DataLoader
-import pandas as pd
 import json
-from transformers import (
-    AutoTokenizer, 
-    AutoModelForCausalLM,
-    Trainer, 
-    TrainingArguments,
-    DataCollatorForLanguageModeling,
-    BitsAndBytesConfig
-)
-from peft import get_peft_model, LoraConfig, TaskType
-import bitsandbytes as bnb  
+import google.generativeai as genai
+import os
 import argparse
-from typing import Dict, List, Union, Optional
+import re
+import torch
+from peft import PeftModel
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from typing import List, Dict
+# from metric_calculations import MetricEvaluator
 
-'''
-pip install -U bitsandbytes accelerate
+"""
+prompt engineering baseline
 
-usage: 
+To run:
+python using_sft_model.py --ads_file test_data.json --output_file sft_rewritten_ads_cot.json
+"""
 
-python prompt_engineering.py \
-  --ads_file 200_sampled_ads.json \
-  --output_file prompt_output.json
+def create_prompt(ad: str) -> str:
+    return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM responses improves. Focus on semantic relevance and matching the user’s likely search intent.
 
-python sft.py \
-  --original_file train_data.json \
-  --rewritten_file train_rewritten_ads.json \
-  --output_dir sft_output \
-  --batch_size 1 \
-  --epochs 1
+Original Ad: {ad}
 
-'''
+Think step by step first, then provide the improved version.
 
-class AdDataset(Dataset):
-    def __init__(
-        self, 
-        original_file: str, 
-        rewritten_file: str, 
-        tokenizer,
-        max_length: int = 512
-    ):
-        # Load original and rewritten data from separate files
-        with open(original_file, 'r') as f:
-            self.original_data = json.load(f)
+Respond with the improved version at the end of your response in the following format:
+Title: ...
+Description: …
+"""
 
-        with open(rewritten_file, 'r') as f:
-            self.rewritten_data = json.load(f)
+def rewrite_ads(ads: List[Dict], model, tokenizer) -> List[Dict]:
+    rewritten = []
 
-        self.tokenizer = tokenizer
-        self.max_length = max_length
-        
-    def __len__(self) -> int:
-        return len(self.original_data)
-    
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        original_document = self.original_data[idx]["text"]
-        rewritten_document = self.rewritten_data[idx]["text"]
+    for a in ads:
+        ad = f"Title: {a.get('title', '')}\n\nDescription: {a.get('text', '')}"
+        prompt = create_prompt(ad)
+        print(f"Generated prompt: {prompt}")
 
-        prompt = f"Original document:\n{original_document}\n\nRewrite the document to improve retrieval for relevant queries:"
-        completion = f" {rewritten_document}{self.tokenizer.eos_token}"
-        
-        # Combine into a full prompt
-        full_text = prompt + completion
-        
-        # Tokenize the text
-        encodings = self.tokenizer(
-            full_text,
-            max_length=self.max_length,
-            padding="max_length",
-            truncation=True,
-            return_tensors="pt"
-        )
-        
-        # Create labels - set prompt tokens to -100 so they're ignored in loss calculation
-        labels = encodings["input_ids"].clone()
-        prompt_tokens = self.tokenizer(
-            prompt, 
-            return_tensors="pt",
-            add_special_tokens=False
-        )["input_ids"].shape[1]
-        
-        labels[0, :prompt_tokens] = -100
-        
-        return {
-            "input_ids": encodings["input_ids"][0],
-            "attention_mask": encodings["attention_mask"][0],
-            "labels": labels[0]
-        }
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+        with torch.no_grad():
+            output = model.generate(
+                **inputs,
+                max_new_tokens=200,
+                do_sample=True,
+                top_p=0.95,
+                temperature=0.7
+            )
+        decoded = tokenizer.decode(output[0], skip_special_tokens=True)
+        print(f"Decoded output: {decoded}")
 
-def train_sft_model(
-    model_name: str,
-    train_dataloader: DataLoader,
-    output_dir: str,
-    epochs: int,
-    logging_steps: int = 100,
-    save_steps: int = 500,
-    learning_rate: float = 2e-5,
-    weight_decay: float = 0.01,
-    warmup_steps: int = 500,
-    fp16: bool = True,
-    gradient_accumulation_steps: int = 1
-) -> AutoModelForCausalLM:
-    
-    # Load the pre-trained model
-    # base_model = AutoModelForCausalLM.from_pretrained(
-    #     model_name,
-    #     device_map="auto",
-    #     load_in_8bit=True,
-    #     torch_dtype=torch.float16
-    # )
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.bfloat16,
+        # Extract improved ad
+        title_match = re.search(r'Title:\s*(.*)', decoded)
+        description_match = re.search(r'Description:\s*(.*)', decoded, re.DOTALL)
+
+        title = title_match.group(1).strip() if title_match else ""
+        description = description_match.group(1).strip() if description_match else ""
+
+        rewritten.append({
+            "user_query": a['user_query'],
+            "title": title,
+            "text": description,
+            "url": a['url'],
+            "seller": a['seller'],
+            "brand": a['brand'],
+            "source": a['source'],
+            "ad_id": a['ad_id']
+        })
+
+        print(f"title: {title}\n\ndescription: {description}\n")
+
+    return rewritten
+
+
+def main(ads_file: str, output_file: str):
+    # Load ads
+    with open(ads_file, 'r', encoding='utf-8') as f:
+        ads = json.load(f)
+
+    model_dir = "sft_output" 
+    base = AutoModelForCausalLM.from_pretrained(
+        "meta-llama/Llama-3.1-8B-Instruct",
+        device_map="auto",
+        torch_dtype=torch.bfloat16
     )
-    
-    base_model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        quantization_config=bnb_config,
-        device_map="auto"
-    )
-
-    # Define LoRA config
-    peft_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        target_modules=["q_proj", "v_proj"],  
-        lora_dropout=0.05,
-        bias="none",
-        task_type=TaskType.CAUSAL_LM
-    )
-
-    # Inject LoRA adapters into the model
-    model = get_peft_model(base_model, peft_config)
-    model.print_trainable_parameters()
-
-    
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=epochs,
-        per_device_train_batch_size=train_dataloader.batch_size,
-        logging_dir=os.path.join(output_dir, "logs"),  
-        logging_strategy="steps",
-        logging_steps=logging_steps,
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-        warmup_steps=warmup_steps,
-        fp16=True,
-        save_strategy="epoch",
-        save_safetensors=True,
-        optim="paged_adamw_8bit",
-        gradient_accumulation_steps=8,
-        overwrite_output_dir=True,
-        label_names=["labels"],  # <-- Add this line
-    )
-    
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataloader.dataset,
-        data_collator=DataCollatorForLanguageModeling(
-            tokenizer=train_dataloader.dataset.tokenizer,
-            mlm=False  # We're not using masked language modeling
-        )
-    )
-    
-    trainer.train()
-    model.save_pretrained(output_dir)
-    
-    return model
-
-def get_sft_dataset(
-    original_file: str, 
-    rewritten_file: str, 
-    tokenizer, 
-    max_length: int = 512
-) -> AdDataset:
-    return AdDataset(original_file, rewritten_file, tokenizer, max_length)
-
-def main(original_file: str, rewritten_file: str,  output_dir: str, batch_size: int, epochs: int) -> None:
-
-    model_name = "meta-llama/Llama-3.1-8B-Instruct"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = PeftModel.from_pretrained(base, model_dir)
+    tokenizer = AutoTokenizer.from_pretrained(model_dir)
     tokenizer.pad_token = tokenizer.eos_token
+    rewritten = rewrite_ads(ads, model, tokenizer)
+
+    # Save output
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(rewritten, f, ensure_ascii=False, indent=2)
+
+    print(f"Rewritten ads saved to {output_file}")
     
-    dataset = get_sft_dataset(original_file, rewritten_file, tokenizer)
-    
-    train_dataloader = DataLoader(
-        dataset, 
-        batch_size=batch_size, 
-        shuffle=True
-    )
-    
-    fine_tuned_model = train_sft_model(
-        model_name=model_name,
-        train_dataloader=train_dataloader,
-        output_dir=output_dir,
-        epochs=epochs
-    )
-    
-    tokenizer.save_pretrained(output_dir)
-    
-    print(f"Model and tokenizer saved to {output_dir}")
+    # evaluator = MetricEvaluator(
+    #     original_ads_path="ds/faiss_index/200_sampled_ads.json",
+    #     queries_path="queries_200.json",
+    #     index_input_path="sft_responses.json",
+    #     index_output_dir="faiss_index_rewritten",
+    #     original_rankings_path="rankings_original.json",
+    #     rewritten_rankings_path="rankings_rewritten.json",
+    #     original_responses_path="query_responses_original_200.json",
+    #     rewritten_responses_path="query_responses_rewritten.json",
+    #     classified_ads_path="classified_ads_200.json"
+    # )
+    # evaluator.run()
 
 if __name__ == "__main__":
-    # Parse command-line arguments
-    parser = argparse.ArgumentParser(description="Fine-tune a language model on self-supervised task using ad data.")
-    parser.add_argument("--original_file", type=str, required=True, help="Path to JSON file containing original ads.")
-    parser.add_argument("--rewritten_file", type=str, required=True, help="Path to JSON file containing rewritten ads.")
-    parser.add_argument("--output_dir", type=str, required=True, help="Directory to save the model and tokenizer.")
-    parser.add_argument("--batch_size", type=int, default=8, help="Batch size for DataLoader.")
-    parser.add_argument("--epochs", type=int, default=3, help="Number of epochs for fine-tuning.")
-    
+    parser = argparse.ArgumentParser(description="Rewrite ads to improve general quality using prompt engineering.")
+    parser.add_argument("--ads_file", type=str, required=True, help="Path to the original ads JSON file.")
+    parser.add_argument("--output_file", type=str, required=True, help="Path to save the rewritten ads JSON output.")
+
     args = parser.parse_args()
-    
-    main(args.original_file, args.rewritten_file, args.output_dir, args.batch_size, args.epochs)
+    main(args.ads_file, args.output_file)
