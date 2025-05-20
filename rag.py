@@ -3,6 +3,7 @@ import re
 import json
 import google.generativeai as genai
 from retriever import AdSiteRetriever
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 '''
@@ -70,19 +71,27 @@ Please provide a helpful, informative response directed to the user based on the
             "documents_in_response": docs_in_response
         }
 
-    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None):
+    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None, max_workers: int = 50):
         # Load queries
         with open(query_file, 'r', encoding='utf-8') as f:
             queries = json.load(f)
 
-        # Init retriever only once, on main thread
+        # Init retriever only once
         self.retriever = AdSiteRetriever(index_dir=index_dir, top_k=top_k, original_file=original_file)
 
         responses = []
 
-        for item in tqdm(queries, desc="Processing queries"):
-            result = self.generate_single(item, top_k=top_k, use_full_docs=use_full_docs)
-            responses.append(result)
+        print(f"Processing {len(queries)} queries in parallel using {max_workers} workers...")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_query = {executor.submit(self.generate_single, item, top_k, use_full_docs): item for item in queries}
+
+            for future in tqdm(as_completed(future_to_query), total=len(queries), desc="Processing queries"):
+                try:
+                    result = future.result()
+                    responses.append(result)
+                except Exception as e:
+                    print(f"Error processing query {future_to_query[future]['query']}: {e}")
 
         # Save to output file
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -91,13 +100,24 @@ Please provide a helpful, informative response directed to the user based on the
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
 if __name__ == "__main__":
+    # generator = RAGGenerator()
+    
+    # generator.batch_generate(
+    #     query_file="10_queries.json",
+    #     index_dir="ds/10_faiss_index",
+    #     output_file="10_query_responses_original.json",
+    #     top_k=10,
+    #     use_full_docs=True,
+    #     original_file="ds/10_sampled_ads.json"
+    # )    
+
     generator = RAGGenerator()
     
     generator.batch_generate(
-        query_file="10_queries.json",
-        index_dir="ds/10_faiss_index",
-        output_file="10_query_responses_original.json",
+        query_file="train_queries.json",
+        index_dir="ds/faiss_index_train",
+        output_file="query_responses_original.json",
         top_k=10,
         use_full_docs=True,
-        original_file="ds/10_sampled_ads.json"
+        original_file="ds/train_data.json"
     )
