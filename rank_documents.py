@@ -35,11 +35,11 @@ class DocumentRanker:
 
 if __name__ == "__main__":
     # Load your queries
-    with open("train_queries.json", "r", encoding="utf-8") as f:
+    with open("test_queries.json", "r", encoding="utf-8") as f:
         queries = json.load(f)
 
     # Create a ranker
-    ranker = DocumentRanker(index_dir="ds/faiss_index_train", top_k=10, original_file="ds/train_data.json")
+    ranker = DocumentRanker(index_dir="ds/faiss_index_test", top_k=3, original_file="ds/test_data.json")
 
     # Rank and save in one call
-    ranker.rank_and_save(queries, "rankings_original.json")
+    ranker.rank_and_save(queries, "prompt3_rankings_original.json")

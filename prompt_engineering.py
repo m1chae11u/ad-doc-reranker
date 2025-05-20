@@ -28,14 +28,31 @@ def initialize_gemini():
     return genai.GenerativeModel("gemini-1.5-pro")
 
 def create_prompt(ad: str) -> Dict[str, str]:
-    return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM response improves. Focus on semantic relevance and matching the user’s likely search intent. 
+#     return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM response improves. Focus on semantic relevance and matching the user’s likely search intent. 
 
+# Original Ad: {ad}
+
+# Respond with the improved version:
+# Title: ... 
+# Description: ...
+# """ 
+    return f"""Rewrite the advertisement so that it ranks better in retrieval and its inclusion in LLM responses improve. Here are two examples:
+Example 1
+Original Ad: Title: Yoga Pants Description: Affordable yoga pants for women, available in multiple colors.
+Reasoning: The phrase "affordable yoga pants" is generic. Adding activity-specific and quality-based terms may help.
+Rewritten Ad: Title: High-performance women’s yoga leggings Description: great yoga pants for training & Pilates – breathable, colorful, and comfortable.
+
+Example 2
+Original Ad: Title: mugs Description: Buy custom mugs with your name.
+Reasoning: This lacks variety and emotional appeal. Including gifting context and materials can help retrieval.
+Rewritten Ad: Title: Personalized ceramic mugs Description: perfect gifts with names, photos, or messages.
+
+Your turn
 Original Ad: {ad}
+Reasoning: 
+Rewritten Ad:
 
-Respond with the improved version:
-Title: ... 
-Description: ...
-""" 
+"""
 
 def extract_title_description(response_text: str) -> Dict[str, str]:
     title_match = re.findall(r'Title:\s*(.*)', response_text)
