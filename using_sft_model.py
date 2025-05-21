@@ -4,10 +4,12 @@ import os
 import argparse
 import re
 import torch
+import asyncio
 from peft import PeftModel
+from tqdm.asyncio import tqdm_asyncio
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import List, Dict
-# from metric_calculations import MetricEvaluator
+from concurrent.futures import ThreadPoolExecutor
 
 """
 prompt engineering baseline
@@ -28,51 +30,62 @@ Title: ...
 Description: …
 """
 
-def rewrite_ads(ads: List[Dict], model, tokenizer) -> List[Dict]:
-    rewritten = []
+def process_one_ad(ad: Dict, model, tokenizer) -> Dict:
+    ad_text = f"Title: {ad.get('title', '')}\n\nDescription: {ad.get('text', '')}"
+    prompt = create_prompt(ad_text)
 
-    for a in ads:
-        ad = f"Title: {a.get('title', '')}\n\nDescription: {a.get('text', '')}"
-        prompt = create_prompt(ad)
-        print(f"Generated prompt: {prompt}")
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        output = model.generate(
+            **inputs,
+            max_new_tokens=200,
+            do_sample=True,
+            top_p=0.95,
+            temperature=0.7
+        )
+    decoded = tokenizer.decode(output[0], skip_special_tokens=True)
 
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-        with torch.no_grad():
-            output = model.generate(
-                **inputs,
-                max_new_tokens=200,
-                do_sample=True,
-                top_p=0.95,
-                temperature=0.7
-            )
-        decoded = tokenizer.decode(output[0], skip_special_tokens=True)
-        print(f"Decoded output: {decoded}")
+    title_match = re.search(r'Title:\s*(.*)', decoded)
+    description_match = re.search(r'Description:\s*(.*)', decoded, re.DOTALL)
 
-        # Extract improved ad
-        title_match = re.search(r'Title:\s*(.*)', decoded)
-        description_match = re.search(r'Description:\s*(.*)', decoded, re.DOTALL)
+    title = title_match.group(1).strip() if title_match else ""
+    description = description_match.group(1).strip() if description_match else ""
 
-        title = title_match.group(1).strip() if title_match else ""
-        description = description_match.group(1).strip() if description_match else ""
+    return {
+        "user_query": ad['user_query'],
+        "title": title,
+        "text": description,
+        "url": ad['url'],
+        "seller": ad['seller'],
+        "brand": ad['brand'],
+        "source": ad['source'],
+        "ad_id": ad['ad_id']
+    }
 
-        rewritten.append({
-            "user_query": a['user_query'],
-            "title": title,
-            "text": description,
-            "url": a['url'],
-            "seller": a['seller'],
-            "brand": a['brand'],
-            "source": a['source'],
-            "ad_id": a['ad_id']
-        })
+async def rewrite_ads_parallel(ads: List[Dict], model, tokenizer, max_concurrent_tasks: int = 4) -> List[Dict]:
+    loop = asyncio.get_event_loop()
+    executor = ThreadPoolExecutor(max_workers=max_concurrent_tasks)
 
-        print(f"title: {title}\n\ndescription: {description}\n")
+    async def run_in_executor(ad):
+        return await loop.run_in_executor(executor, process_one_ad, ad, model, tokenizer)
 
-    return rewritten
+    sem = asyncio.Semaphore(max_concurrent_tasks)
 
+    async def sem_task(ad):
+        async with sem:
+            return await run_in_executor(ad)
+
+    tasks = [sem_task(ad) for ad in ads]
+
+    # Use tqdm to show progress
+    results = []
+    for future in tqdm_asyncio.as_completed(tasks, total=len(tasks), desc="Rewriting Ads"):
+        result = await future
+        results.append(result)
+
+    return results
 
 def main(ads_file: str, output_file: str):
-    # Load ads
     with open(ads_file, 'r', encoding='utf-8') as f:
         ads = json.load(f)
 
@@ -85,31 +98,17 @@ def main(ads_file: str, output_file: str):
     model = PeftModel.from_pretrained(base, model_dir)
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
     tokenizer.pad_token = tokenizer.eos_token
-    rewritten = rewrite_ads(ads, model, tokenizer)
 
-    # Save output
+    rewritten = asyncio.run(rewrite_ads_parallel(ads, model, tokenizer, max_concurrent_tasks=20))
+
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(rewritten, f, ensure_ascii=False, indent=2)
 
     print(f"Rewritten ads saved to {output_file}")
-    
-    # evaluator = MetricEvaluator(
-    #     original_ads_path="ds/faiss_index/200_sampled_ads.json",
-    #     queries_path="queries_200.json",
-    #     index_input_path="sft_responses.json",
-    #     index_output_dir="faiss_index_rewritten",
-    #     original_rankings_path="rankings_original.json",
-    #     rewritten_rankings_path="rankings_rewritten.json",
-    #     original_responses_path="query_responses_original_200.json",
-    #     rewritten_responses_path="query_responses_rewritten.json",
-    #     classified_ads_path="classified_ads_200.json"
-    # )
-    # evaluator.run()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Rewrite ads to improve general quality using prompt engineering.")
-    parser.add_argument("--ads_file", type=str, required=True, help="Path to the original ads JSON file.")
-    parser.add_argument("--output_file", type=str, required=True, help="Path to save the rewritten ads JSON output.")
-
+    parser.add_argument("--ads_file", type=str, required=True)
+    parser.add_argument("--output_file", type=str, required=True)
     args = parser.parse_args()
     main(args.ads_file, args.output_file)
