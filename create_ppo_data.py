@@ -10,6 +10,18 @@ python create_ppo_data.py \
   --output_dir data/ad_ppo
 """
 
+def create_prompt(ad: str) -> str:
+    return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM responses improves. Focus on semantic relevance and matching the user's likely search intent.
+
+Original Ad: {ad}
+
+Think step by step first, then provide the improved version.
+
+Respond with the improved version at the end of your response in the following format:
+Title: ...
+Description: …
+"""
+
 def create_ppo_dataset(
     original_ads_file: str,
     rewritten_ads_file: str,
@@ -41,25 +53,28 @@ def create_ppo_dataset(
     for i, (orig_ad, rewrite_ad) in enumerate(zip(original_ads, rewritten_ads)):
         original_text = orig_ad.get("text", "")
         
+        # Format original ad text in the same way as in the SFT model
+        ad_text = f"Title: {orig_ad.get('title', '')}\n\nDescription: {original_text}"
+        
         # For PPO, we use the Alpaca format (supervised fine-tuning format)
         # PPO will use the reward model to guide generation
         entry = {
-            "instruction": "Rewrite the following advertisement to improve retrieval for relevant queries:",
-            "input": original_text,
+            "instruction": create_prompt(ad_text),
+            "input": ad_text,
             "output": ""  # Empty output as PPO will learn to generate this with reward guidance
         }
         
         ppo_data.append(entry)
     
     # Save the PPO dataset
-    output_file = os.path.join(output_dir, "train.json")
+    output_file = os.path.join(output_dir, "train_ppo.json")
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(ppo_data, f, indent=2, ensure_ascii=False)
     
     # Create dataset_info.json according to LLaMA-Factory specs
     dataset_info = {
         "ad_ppo": {
-            "file_name": "train.json",
+            "file_name": "train_ppo.json",
             "columns": {
                 "prompt": "instruction",
                 "query": "input",
