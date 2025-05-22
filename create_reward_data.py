@@ -11,6 +11,18 @@ python create_reward_data.py \
   --output_dir data/ad_reward
 """
 
+def create_prompt(ad: str) -> str:
+    return f"""You are given an advertisement. Your task is to rewrite it so that its ranking in retrieval and inclusion in LLM responses improves. Focus on semantic relevance and matching the user's likely search intent.
+
+Original Ad: {ad}
+
+Think step by step first, then provide the improved version.
+
+Respond with the improved version at the end of your response in the following format:
+Title: ...
+Description: …
+"""
+
 def create_reward_dataset(
     original_ads_file: str,
     rewritten_ads_file: str,
@@ -43,27 +55,30 @@ def create_reward_dataset(
         original_text = orig_ad.get("text", "")
         rewritten_text = rewrite_ad.get("text", "")
         
+        # Format original ad as we do in the SFT model
+        ad_text = f"Title: {orig_ad.get('title', '')}\n\nDescription: {original_text}"
+        
         # For each ad, create an entry where the rewritten ad is "chosen"
         # and the original ad is "rejected" since we want to train the model to prefer
         # the rewritten versions
         entry = {
-            "instruction": "Rewrite the advertisement to improve retrieval for relevant queries:",
-            "input": original_text,
-            "chosen": rewritten_text,
-            "rejected": original_text
+            "instruction": create_prompt(ad_text),
+            "input": ad_text,
+            "chosen": f"Title: {rewrite_ad.get('title', '')}\n\nDescription: {rewritten_text}",
+            "rejected": ad_text
         }
         
         preference_data.append(entry)
     
     # Save the preference dataset
-    output_file = os.path.join(output_dir, "train.json")
+    output_file = os.path.join(output_dir, "train_reward.json")
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(preference_data, f, indent=2, ensure_ascii=False)
     
     # Create dataset_info.json according to LLaMA-Factory specs
     dataset_info = {
         "ad_reward": {
-            "file_name": "train.json",
+            "file_name": "train_reward.json",
             "ranking": True,
             "columns": {
                 "prompt": "instruction",
