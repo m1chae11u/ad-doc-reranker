@@ -71,7 +71,7 @@ Please provide a helpful, informative response directed to the user based on the
             "documents_in_response": docs_in_response
         }
 
-    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None, max_workers: int = 25):
+    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None, max_workers: int = 30):
         # Load queries
         with open(query_file, 'r', encoding='utf-8') as f:
             queries = json.load(f)
