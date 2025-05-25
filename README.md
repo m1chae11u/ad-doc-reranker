@@ -2,7 +2,7 @@
 
 This repository contains the implementation for the paper "Rewrite-to-Rank: Optimizing Ad Visibility via Retrieval-Aware Text Rewriting". The system improves advertisement visibility in search and retrieval systems by rewriting ad content using various LLM-based approaches.
 
-**Note**: The PPO LoRA training is implemented in a separate repository: https://anonymous.4open.science/r/ad_ppo_lora-582C
+**Note**: The PPO LoRA training is implemented in a separate repository: https://anonymous.4open.science/r/ad-ppo-lora-2706
 
 ## Table of Contents
 
