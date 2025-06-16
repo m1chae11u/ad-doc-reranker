@@ -13,7 +13,7 @@ class RAGGenerator:
     def __init__(self, retriever=None):
         self.api_key = self.load_api_key()
         genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-pro')
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
         self.retriever = retriever  # optional shared retriever
 
     @staticmethod
