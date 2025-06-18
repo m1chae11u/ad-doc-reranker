@@ -166,7 +166,7 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="prompt1_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="prompt3_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="prompt5_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
@@ -205,7 +205,7 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
         index_output_dir="faiss_index_rewritten",
         original_rankings_path="prompt10_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
@@ -215,6 +215,33 @@ if __name__ == "__main__":
         k=10
     )
     evaluator.run()
+    evaluator = MetricEvaluator(
+        original_ads_path="ds/test_data.json",
+        queries_path="test_queries.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
+        index_output_dir="faiss_index_rewritten",
+        original_rankings_path="prompt20_rankings_original.json",
+        rewritten_rankings_path="rankings_rewritten.json",
+        original_responses_path="test20_query_responses_original.json",
+        rewritten_responses_path="query_responses_rewritten.json",
+        classified_ads_path="test_classified_ads.json",
+        k=20
+    )
+    evaluator.run()
+    evaluator = MetricEvaluator(
+        original_ads_path="ds/test_data.json",
+        queries_path="test_queries.json",
+        index_input_path="sft_rewritten_ads_fewshot.json",
+        index_output_dir="faiss_index_rewritten",
+        original_rankings_path="prompt30_rankings_original.json",
+        rewritten_rankings_path="rankings_rewritten.json",
+        original_responses_path="test30_query_responses_original.json",
+        rewritten_responses_path="query_responses_rewritten.json",
+        classified_ads_path="test_classified_ads.json",
+        k=30
+    )
+    evaluator.run()
+
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
@@ -241,4 +268,3 @@ if __name__ == "__main__":
         k=30
     )
     evaluator.run()
-
