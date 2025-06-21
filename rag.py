@@ -71,7 +71,7 @@ Please provide a helpful, informative response directed to the user based on the
             "documents_in_response": docs_in_response
         }
 
-    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None, max_workers: int = 30):
+    def batch_generate(self, query_file: str, index_dir: str, output_file: str, top_k: int = 3, use_full_docs: bool = True, original_file: str = None, max_workers: int = 15):
         # Load queries
         with open(query_file, 'r', encoding='utf-8') as f:
             queries = json.load(f)
@@ -100,34 +100,44 @@ Please provide a helpful, informative response directed to the user based on the
         print(f"\nSaved {len(responses)} query-response pairs to {output_file}")
 
 if __name__ == "__main__":
-    # generator = RAGGenerator()
-    
-    # generator.batch_generate(
-    #     query_file="10_queries.json",
-    #     index_dir="ds/10_faiss_index",
-    #     output_file="10_query_responses_original.json",
-    #     top_k=10,
-    #     use_full_docs=True,
-    #     original_file="ds/10_sampled_ads.json"
-    # )    
-
-    # generator = RAGGenerator()
-    
-    # generator.batch_generate(
-    #     query_file="train_queries.json",
-    #     index_dir="ds/faiss_index_train",
-    #     output_file="query_responses_original.json",
-    #     top_k=10,
-    #     use_full_docs=True,
-    #     original_file="ds/train_data.json"
-    # )
-
     generator = RAGGenerator()
     
+    # generator.batch_generate(
+    #     query_file="test_queries.json",
+    #     index_dir="ds/faiss_index_test",
+    #     output_file="test1_query_responses_original2.json",
+    #     top_k=1,
+    #     use_full_docs=True,
+    #     original_file="ds/test_data.json"
+    # )
+    # generator.batch_generate(
+    #     query_file="test_queries.json",
+    #     index_dir="ds/faiss_index_test",
+    #     output_file="test3_query_responses_original2.json",
+    #     top_k=3,
+    #     use_full_docs=True,
+    #     original_file="ds/test_data.json"
+    # )
+    # generator.batch_generate(
+    #     query_file="test_queries.json",
+    #     index_dir="ds/faiss_index_test",
+    #     output_file="test5_query_responses_original2.json",
+    #     top_k=5,
+    #     use_full_docs=True,
+    #     original_file="ds/test_data.json"
+    # )
+    # generator.batch_generate(
+    #     query_file="test_queries.json",
+    #     index_dir="ds/faiss_index_test",
+    #     output_file="test10_query_responses_original2.json",
+    #     top_k=10,
+    #     use_full_docs=True,
+    #     original_file="ds/test_data.json"
+    # )
     generator.batch_generate(
         query_file="test_queries.json",
         index_dir="ds/faiss_index_test",
-        output_file="test20_query_responses_original.json",
+        output_file="test20_query_responses_original2.json",
         top_k=20,
         use_full_docs=True,
         original_file="ds/test_data.json"
@@ -135,7 +145,7 @@ if __name__ == "__main__":
     generator.batch_generate(
         query_file="test_queries.json",
         index_dir="ds/faiss_index_test",
-        output_file="test30_query_responses_original.json",
+        output_file="test30_query_responses_original2.json",
         top_k=30,
         use_full_docs=True,
         original_file="ds/test_data.json"
