@@ -39,7 +39,7 @@ if __name__ == "__main__":
         queries = json.load(f)
 
     # Create a ranker
-    ranker = DocumentRanker(index_dir="ds/faiss_index_test", top_k=3, original_file="ds/test_data.json")
+    ranker = DocumentRanker(index_dir="ds/faiss_index_test", top_k=10, original_file="ds/test_data.json")
 
     # Rank and save in one call
-    ranker.rank_and_save(queries, "prompt3_rankings_original.json")
+    ranker.rank_and_save(queries, "p10_rankings_original.json")
