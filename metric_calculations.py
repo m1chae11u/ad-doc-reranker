@@ -57,36 +57,6 @@ class MetricEvaluator:
         ranker = DocumentRanker(index_dir=self.index_output_dir, top_k=self.k, original_file=self.index_input_path)
         ranker.rank_and_save(queries, output_file)
 
-    # async def generate_responses_async(self):
-    #     # Load queries
-    #     queries = self.load_json(self.queries_path)
-    
-    #     # Initialize retriever ON MAIN THREAD
-    #     retriever = AdSiteRetriever(
-    #         index_dir=self.index_output_dir,
-    #         top_k=self.k,
-    #         original_file=self.original_ads_path
-    #     )
-    
-    #     # Pass retriever into RAGGenerator
-    #     generator = RAGGenerator(retriever=retriever)
-    
-    #     async def generate_for_query(query):
-    #         loop = asyncio.get_event_loop()
-    #         return await loop.run_in_executor(None, generator.generate_single, query, self.k, True)
-    
-    #     tasks = [generate_for_query(q) for q in queries]
-    #     results = await tqdm_asyncio.gather(*tasks, desc="Generating responses", total=len(tasks))
-    
-    #     with open(self.rewritten_responses_path, "w", encoding="utf-8") as f:
-    #         json.dump(results, f, ensure_ascii=False, indent=2)
-    
-    #     print(f"Saved {len(results)} rewritten responses to {self.rewritten_responses_path}")
-
-
-    # def generate_responses(self):
-    #     asyncio.run(self.generate_responses_async())
-
     def generate_responses(self):
         generator = RAGGenerator()
         generator.batch_generate(
@@ -163,67 +133,67 @@ if __name__ == "__main__":
     # index_input_path is rewritten ads
 
 
+    # evaluator = MetricEvaluator(
+    #     original_ads_path="ds/test_data.json",
+    #     queries_path="test_queries.json",
+    #     index_input_path= "ppo452035_rewritten_ads_few.json",
+    #     index_output_dir="ds/faiss_index_rewritten",
+    #     original_rankings_path="prompt1_rankings_original.json",
+    #     rewritten_rankings_path="rankings_rewritten.json",
+    #     original_responses_path="test1_query_responses_original.json",
+    #     rewritten_responses_path="query_responses_rewritten1.json",
+    #     classified_ads_path="test_classified_ads.json",
+    #     k=1
+    # )
+    # evaluator.run()
+    # evaluator = MetricEvaluator(
+    #     original_ads_path="ds/test_data.json",
+    #     queries_path="test_queries.json",
+    #     index_input_path= "ppo452035_rewritten_ads_few.json",
+    #     index_output_dir="ds/faiss_index_rewritten",
+    #     original_rankings_path="prompt3_rankings_original.json",
+    #     rewritten_rankings_path="rankings_rewritten.json",
+    #     original_responses_path="test3_query_responses_original.json",
+    #     rewritten_responses_path="query_responses_rewritten3.json",
+    #     classified_ads_path="test_classified_ads.json",
+    #     k=3
+    # )
+    # evaluator.run()
+    # evaluator = MetricEvaluator(
+    #     original_ads_path="ds/test_data.json",
+    #     queries_path="test_queries.json",
+    #     index_input_path= "ppo452035_rewritten_ads_few.json",
+    #     index_output_dir="ds/faiss_index_rewritten",
+    #     original_rankings_path="prompt5_rankings_original.json",
+    #     rewritten_rankings_path="rankings_rewritten.json",
+    #     original_responses_path="test5_query_responses_original.json",
+    #     rewritten_responses_path="query_responses_rewritten5.json",
+    #     classified_ads_path="test_classified_ads.json",
+    #     k=5
+    # )
+    # evaluator.run()
+    # evaluator = MetricEvaluator(
+    #     original_ads_path="ds/test_data.json",
+    #     queries_path="test_queries.json",
+    #     index_input_path= "ppo452035_rewritten_ads_few.json",
+    #     index_output_dir="ds/faiss_index_rewritten",
+    #     original_rankings_path="prompt10_rankings_original.json",
+    #     rewritten_rankings_path="rankings_rewritten.json",
+    #     original_responses_path="test10_query_responses_original.json",
+    #     rewritten_responses_path="query_responses_rewritten10.json",
+    #     classified_ads_path="test_classified_ads.json",
+    #     k=10
+    # )
+    # evaluator.run()
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt1_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test1_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=1
-    )
-    evaluator.run()
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt3_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test3_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=3
-    )
-    evaluator.run()
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt5_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test5_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=5
-    )
-    evaluator.run()
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt10_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test10_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=10
-    )
-    evaluator.run()
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
+        index_input_path= "ppo452035_rewritten_ads_few.json",
+        index_output_dir="ds/faiss_index_rewritten",
         original_rankings_path="prompt20_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
         original_responses_path="test20_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
+        rewritten_responses_path="query_responses_rewritten20.json",
         classified_ads_path="test_classified_ads.json",
         k=20
     )
@@ -231,39 +201,12 @@ if __name__ == "__main__":
     evaluator = MetricEvaluator(
         original_ads_path="ds/test_data.json",
         queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_fewshot.json",
-        index_output_dir="faiss_index_rewritten",
+        index_input_path= "ppo452035_rewritten_ads_few.json",
+        index_output_dir="ds/faiss_index_rewritten",
         original_rankings_path="prompt30_rankings_original.json",
         rewritten_rankings_path="rankings_rewritten.json",
         original_responses_path="test30_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=30
-    )
-    evaluator.run()
-
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt20_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test20_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
-        classified_ads_path="test_classified_ads.json",
-        k=20
-    )
-    evaluator.run()
-    evaluator = MetricEvaluator(
-        original_ads_path="ds/test_data.json",
-        queries_path="test_queries.json",
-        index_input_path="sft_rewritten_ads_inst.json",
-        index_output_dir="faiss_index_rewritten",
-        original_rankings_path="prompt30_rankings_original.json",
-        rewritten_rankings_path="rankings_rewritten.json",
-        original_responses_path="test30_query_responses_original.json",
-        rewritten_responses_path="query_responses_rewritten.json",
+        rewritten_responses_path="query_responses_rewritten30.json",
         classified_ads_path="test_classified_ads.json",
         k=30
     )
