@@ -59,7 +59,7 @@ python data_processing/sample_microsoft_ads.py --input_file commercial_ads.json 
 python data_processing/build_index.py --input_path sampled_ads.json --output_dir faiss_index_original
 ```
 
-Then, the domain and subdomain for each ad is generated and 10 queries for each domain-subdomain pair is generated. 
+Then, the domain and subdomain for each ad is generated and queries for each domain-subdomain pair is generated. 
 ```bash
 python queries.py --input_file sampled_ads.json --output_file queries.json --classified_output_file classified_ads.json --num_queries 10
 ```
