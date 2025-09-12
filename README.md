@@ -49,7 +49,7 @@ Create a file at configs/keys.json with the following content:
 First, prepare your advertisement dataset and build the necessary indices:
 
 ```bash
-# Convert Microsoft Commercial Ads Dataset to expected format
+# Converts Microsoft Commercial Ads Dataset to expected format
 python data_processing/convert_microsoft_ads.py --input_dir /path/to/commercial_ads_dataset --output_file commercial_ads.json
 
 # Sample ads for testing (optional)
@@ -59,21 +59,50 @@ python data_processing/sample_microsoft_ads.py --input_file commercial_ads.json 
 python data_processing/build_index.py --input_path sampled_ads.json --output_dir faiss_index_original
 ```
 
+Then, the domain and subdomain for each ad is generated and 10 queries for each domain-subdomain pair is generated. 
+```bash
+python queries.py --input_file sampled_ads.json --output_file queries.json --classified_output_file classified_ads.json --num_queries 10
+```
+
+For each query, retrieve the top k relevant ads from the sampled dataset and generate LLM responses to the query using the ads. 
+```
+# ranks the ads (json file of queries)
+python rank_documents.py --query_file queries_200.json --index_dir ./ds/faiss_index/ --output_file rankings.json --top_k 10
+
+# generates responses to the query (json file of queries with k retrieved ads and LLM response)
+python rag.py # will need to go into the code to change all the parameters of the function
+```
+
 ### Ad Rewriting Models
 
 This repository supports two different approaches for rewriting advertisements to improve their ranking and retrieval performance:
 
 #### 1. Prompt Engineering Baseline
 ```bash
-python prompt_engineering.py --ads_file sampled_ads.json --output_file prompt_rewritten_ads.json
+# using the testing data
+python prompt_engineering.py --ads_file test_sampled_ads.json --output_file prompt_rewritten_ads.json
 ```
 
 #### 2. Supervised Fine-Tuned (SFT) Model
 ```bash
-python using_sft_model.py --ads_file sampled_ads.json --output_file sft_rewritten_ads.json
+# generating synthetic ground truths
+python prompt_engineering.py \
+  --ads_file train_sampled_ads.json \
+  --output_file train_rewritten_ads.json
+
+# training the model
+python sft.py \
+  --original_file train_data.json \
+  --rewritten_file train_rewritten_ads.json \
+  --output_dir sft_output \
+  --batch_size 1 \
+  --epochs 1
+
+# testing the model
+python using_sft_model.py --ads_file test_sampled_ads.json --output_file sft_rewritten_ads.json
 ```
 
-**Note**: For PPO-based ad rewriting, refer to the separate PPO LoRA repository linked above.
+**Note**: For PPO-based ad rewriting, refer to the separate PPO LoRA repository linked above. 
 
 ### Metric Evaluation
 
